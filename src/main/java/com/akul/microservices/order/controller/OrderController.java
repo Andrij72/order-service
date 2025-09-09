@@ -21,17 +21,19 @@ import java.util.List;
  */
 
 @RestController
-@RequestMapping("/api/v/orders")
-@RequiredArgsConstructor
+@RequestMapping("/api/v1/orders")
 public class OrderController {
 
     private final OrderService orderService;
 
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
     @PostMapping
-    public ResponseEntity<String> createOrder(@RequestBody @Valid OrderRequest orderRequest) {
+    public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderRequest orderRequest) {
         OrderResponse response = orderService.placeOrder(orderRequest);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body("Order created successfully. OrderNbr: " + response.orderNbr());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{orderNbr}")

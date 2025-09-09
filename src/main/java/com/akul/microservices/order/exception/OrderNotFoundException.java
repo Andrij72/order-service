@@ -1,4 +1,4 @@
-package com.akul.microservices.order.exceptions;
+package com.akul.microservices.order.exception;
 
 /**
  * OrderNotFoundException.java
