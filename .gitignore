@@ -30,5 +30,5 @@ build/
 !**/src/test/**/build/
 
 .env
-mysql/
-docker/mysql/data/
+mysql
+docker/mysql/data
