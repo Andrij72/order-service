@@ -24,7 +24,6 @@ It is part of a microservices architecture and communicates with other services 
 - **Spring Boot 3**
 - **Spring Data JPA** (MySQL)
 - **Apache Kafka** (event-driven communication)
-- **Confluent Schema Registry** (if using Avro serialization)
 - **Lombok**
 - **Maven** (build tool)
 - **Docker & Docker Compose** (containerization & infrastructure)
