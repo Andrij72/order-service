@@ -8,11 +8,11 @@ import com.akul.microservices.order.exception.OrderNotFoundException;
 import com.akul.microservices.order.exception.ProductOutOfStockException;
 import com.akul.microservices.order.model.Order;
 import com.akul.microservices.order.repository.OrderRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,7 +28,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
@@ -37,6 +36,7 @@ public class OrderService {
     private final InventoryClient inventoryClient;
     private  final KafkaTemplate<String,OrderPlacedEvent> kafkaTemplate;
 
+    @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
         var isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
 
@@ -73,6 +73,7 @@ public class OrderService {
 
     }
 
+    @Transactional(readOnly=true)
     public OrderResponse getOrder(String orderNbr) {
         Order order = orderRepository.findByOrderNbr(orderNbr)
                 .orElseThrow(() -> new OrderNotFoundException(orderNbr));
@@ -87,6 +88,7 @@ public class OrderService {
         );
     }
 
+    @Transactional(readOnly=true)
     public List<OrderResponse> getAllOrders() {
         List<Order> orders = orderRepository.findAll();
 
