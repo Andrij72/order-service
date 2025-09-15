@@ -1,7 +1,11 @@
 # 📦 Order Service
 
-**Order Service** is a microservice responsible for managing orders: creating, updating, and deleting.  
-It is part of a microservices architecture and communicates with other services via **Apache Kafka**.
+Order Service is a microservice responsible for managing orders: creating, updating, and deleting.
+
+It is part of a microservices architecture and communicates with other services as follows:
+
+- **OrderService ↔ NotificationService** – asynchronous communication via **Apache Kafka**.
+- **OrderService ↔ InventoryService** – synchronous communication via **REST API** using **Resilience4j*
 
 ---
 
@@ -20,7 +24,6 @@ It is part of a microservices architecture and communicates with other services 
 - **Spring Boot 3**
 - **Spring Data JPA** (MySQL)
 - **Apache Kafka** (event-driven communication)
-- **Confluent Schema Registry** (if using Avro serialization)
 - **Lombok**
 - **Maven** (build tool)
 - **Docker & Docker Compose** (containerization & infrastructure)

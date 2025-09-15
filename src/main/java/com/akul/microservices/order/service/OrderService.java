@@ -3,6 +3,7 @@ package com.akul.microservices.order.service;
 import com.akul.microservices.order.client.InventoryClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
+import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.exception.OrderNotFoundException;
 import com.akul.microservices.order.exception.ProductOutOfStockException;
 import com.akul.microservices.order.model.Order;
@@ -11,6 +12,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -33,6 +35,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final InventoryClient inventoryClient;
+    private  final KafkaTemplate<String,OrderPlacedEvent> kafkaTemplate;
 
     public OrderResponse placeOrder(OrderRequest orderRequest) {
         var isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
@@ -47,6 +50,16 @@ public class OrderService {
             Order savedOrder = orderRepository.save(order);
 
             log.info("New order placed: {}", savedOrder.getOrderNbr());
+
+            OrderPlacedEvent orderPlacedEvent = new OrderPlacedEvent();
+
+            orderPlacedEvent.setOrderNbr(order.getOrderNbr());
+            orderPlacedEvent.setEmail(orderRequest.userDetails().email());
+            orderPlacedEvent.setFirstName(orderRequest.userDetails().firstName());
+            orderPlacedEvent.setLastName(orderRequest.userDetails().lastName());
+      log.info("Start. Sending OrderPlacedEvent {} to Kafka topic order-placed", order.getOrderNbr());
+            kafkaTemplate.send("order-placed", orderPlacedEvent);
+            log.info("End. Sending OrderPlacedEvent {} to Kafka topic order-placed", order.getOrderNbr());
 
             return new OrderResponse(
                     savedOrder.getOrderNbr(),
@@ -75,7 +88,7 @@ public class OrderService {
     }
 
     public List<OrderResponse> getAllOrders() {
-        List<Order> orders=orderRepository.findAll();
+        List<Order> orders = orderRepository.findAll();
 
         return orders.stream()
                 .map(OrderResponse::from)
