@@ -31,4 +31,10 @@ build/
 
 .env
 mysql
+
 docker/mysql/data
+docker-compose.local.yml
+workflows/docker-build_old.yml
+
+src/main/resources/application.properties
+!src/main/resources/application.properties.example

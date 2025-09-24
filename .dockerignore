@@ -1,0 +1,19 @@
+# Ігнорувати дані MySQL, щоб Docker не пакував їх у build context
+docker/mysql/data
+
+# Ігнорувати локальні налаштування IDE
+*.iml
+.idea/
+.vscode/
+
+# Ігнорувати цілі та тимчасові файли збірки
+target/
+build/
+*.class
+*.jar
+
+# Логи
+*.log
+
+# Git
+.git/
