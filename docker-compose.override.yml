@@ -1,22 +1,8 @@
-version: "3.9"
-
 services:
-  order-service:
-    image: andr72/order-service:dev-latest
-    container_name: order-service
-    restart: always
-    ports:
-      - "8083:8083"
-    environment:
-      SPRING_DATA_MYSQL_URI: jdbc:mysql://mysql:3306/order_service?useSSL=false&serverTimezone=UTC&authSource=admin
-      SPRING_PROFILES_ACTIVE: dev
-    depends_on:
-      - mysql
-    networks:
-      - microservices-net
+
 
   mysql:
-    image: mysql:8.4.6
+    image: mysql:8.0.32
     container_name: mysql_order
     restart: always
     ports:
@@ -29,7 +15,14 @@ services:
     volumes:
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./docker/mysql/data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${ROOT_MYSQL_PASS}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+    networks:
+      - microservices-net
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -82,7 +75,25 @@ services:
       KAFKA_CLUSTERS_SCHEMAREGISTRY: http://schema-registry:8081
       DYNAMIC_CONFIG_ENABLED: 'true'
 
+  order-service:
+    image: andr72/order-service:dev-latest
+    container_name: order-service
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATA_MYSQL_URI: jdbc:mysql://mysql:3306/order_service?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASS}
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+        mysql:
+          condition: service_healthy
+    networks:
+      - microservices-net
 
 networks:
   microservices-net:
     driver: bridge
+  my-network:
+    external: true

@@ -1,6 +1,7 @@
 package com.akul.microservices.order.dto;
 
 import com.akul.microservices.order.model.Order;
+import com.akul.microservices.order.model.UserDetails;
 
 import java.math.BigDecimal;
 
@@ -14,9 +15,12 @@ import java.math.BigDecimal;
 public record OrderResponse(String orderNbr,
                             String skuCode,
                             BigDecimal price,
-                            Integer quantity
+                            Integer quantity,
+                            UserDetails userDetails
 ) {
-    public static OrderResponse from(Order order) {
-        return new OrderResponse(order.getOrderNbr(), order.getSkuCode(), order.getPrice(), order.getQuantity());
-    }
+    public record UserDetails(
+            String email,
+            String firstName,
+            String lastName
+    ) {}
 }

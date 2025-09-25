@@ -2,6 +2,7 @@ package com.akul.microservices.order.controller;
 
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
+import com.akul.microservices.order.mappers.OrderMapper;
 import com.akul.microservices.order.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,9 +22,11 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderMapper orderMapper;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, OrderMapper orderMapper) {
         this.orderService = orderService;
+        this.orderMapper = orderMapper;
     }
 
     @PostMapping

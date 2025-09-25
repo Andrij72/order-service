@@ -1,0 +1,11 @@
+{
+"type": "record",
+"name": "OrderPlacedEvent",
+"namespace": "com.akul.microservices.order.event",
+"fields": [
+{ "name": "orderNbr", "type": "string" },
+{ "name": "email", "type": "string" },
+{ "name": "firstName", "type": "string" },
+{ "name": "lastName", "type": "string" }
+]
+}
