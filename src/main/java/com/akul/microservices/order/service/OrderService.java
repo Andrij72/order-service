@@ -8,7 +8,9 @@ import com.akul.microservices.order.exception.OrderNotFoundException;
 import com.akul.microservices.order.exception.ProductOutOfStockException;
 import com.akul.microservices.order.mappers.OrderMapper;
 import com.akul.microservices.order.model.Order;
+import com.akul.microservices.order.model.UserDetails;
 import com.akul.microservices.order.repository.OrderRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,11 +75,11 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public OrderResponse getOrder(String orderNbr) {
-        Order order = orderRepository.findByOrderNbr(orderNbr)
-                .orElseThrow(() -> new OrderNotFoundException(orderNbr));
+    public OrderResponse getOrder(String orderId) {
+        Order order = orderRepository.findByOrderNbr(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
-        log.info("Order retrieved: {}", orderNbr);
+        log.info("Order retrieved: {}", orderId);
 
         return orderMapper.toDto(order);
     }
@@ -87,5 +89,34 @@ public class OrderService {
         List<Order> orders = orderRepository.findAll();
 
         return orderMapper.toDto(orders);
+    }
+
+    @Transactional
+    public void deleteOrder(String orderId) {
+        Order order = orderRepository.findByOrderNbr(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        orderRepository.delete(order);
+        log.info("Order deleted: {}", orderId);
+    }
+
+    @Transactional
+    public OrderResponse update(String orderId, OrderRequest orderRequest) {
+
+        Order updatedOrder = orderRepository.findByOrderNbr(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        updatedOrder.setQuantity(orderRequest.quantity());
+        updatedOrder.setPrice(orderRequest.price());
+        updatedOrder.setUserDetails(new UserDetails(
+                        orderRequest.userDetails().email(),
+                        orderRequest.userDetails().firstName(),
+                        orderRequest.userDetails().lastName()
+                )
+        );
+
+        orderRepository.save(updatedOrder);
+        log.info("Order updated: {}", orderId);
+
+        return orderMapper.toDto(updatedOrder);
     }
 }

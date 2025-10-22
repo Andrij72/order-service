@@ -3,11 +3,15 @@ package com.akul.microservices.order.controller;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.mappers.OrderMapper;
+import com.akul.microservices.order.model.Order;
+import com.akul.microservices.order.model.UserDetails;
 import com.akul.microservices.order.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * OderController.java
@@ -22,11 +26,9 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final OrderService orderService;
-    private final OrderMapper orderMapper;
 
-    public OrderController(OrderService orderService, OrderMapper orderMapper) {
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
-        this.orderMapper = orderMapper;
     }
 
     @PostMapping
@@ -39,5 +41,24 @@ public class OrderController {
     public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderNbr) {
         OrderResponse response = orderService.getOrder(orderNbr);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+        List<OrderResponse> orders = orderService.getAllOrders();
+        return ResponseEntity.ok(orders);
+    }
+
+    @DeleteMapping("/{orderNbr}")
+    public ResponseEntity<String> deleteOrder(@PathVariable String orderNbr) {
+                orderService.deleteOrder(orderNbr);
+        return ResponseEntity.ok("Order with " +orderNbr + " successfully deleted ");
+    }
+
+    @PutMapping("/{orderNbr}")
+    public ResponseEntity<OrderResponse> updateOrder(@PathVariable String orderNbr,
+                                                     @RequestBody @Valid OrderRequest orderRequest) {
+        OrderResponse response = orderService.update(orderNbr, orderRequest);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 }
