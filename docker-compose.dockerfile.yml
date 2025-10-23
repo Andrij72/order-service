@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+
+  order-service:
+    image: order-service:latest
+    container_name: order-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASS: ${MYSQL_PASS}
+    depends_on:
+      - mysql
+      - broker
+      - schema-registry
+    networks:
+      - microservices-net
+
+networks:
+  microservices-net:
+    driver: bridge

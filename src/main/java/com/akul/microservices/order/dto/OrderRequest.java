@@ -11,16 +11,15 @@ import java.math.BigDecimal;
  * @author Andrii Kulynch
  * @since 8/22/2025
  */
-public record OrderRequest(Long id,
-                           String orderNbr,
+public record OrderRequest(
                            String skuCode,
                            BigDecimal price,
                            Integer quantity,
                            @NotNull UserDetails userDetails
 ) {
     public record UserDetails(
-            @NotBlank String email,
-            @NotBlank String firstName,
-            @NotBlank String lastName
+            String email,
+            String firstName,
+            String lastName
     ) {}
 }

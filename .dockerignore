@@ -1,0 +1,14 @@
+docker/mysql/data
+
+*.iml
+.idea/
+.vscode/
+
+target/
+build/
+*.class
+*.jar
+
+*.log
+
+.git/
