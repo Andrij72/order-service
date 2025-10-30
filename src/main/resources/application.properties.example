@@ -21,4 +21,4 @@ spring.kafka.bootstrap-servers=localhost:9092
 spring.kafka.template.default-topic=order-placed
 spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
 spring.kafka.producer.value-serializer=io.confluent.kafka.serializers.KafkaAvroSerializer
-spring.kafka.properties.schema.registry.url=schema-registry:8081
+spring.kafka.properties.schema.registry.url=http://schema-registry:8085

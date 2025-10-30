@@ -1,6 +1,6 @@
 package com.akul.microservices.order.service;
 
-import com.akul.microservices.order.client.InventoryClient;
+import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.event.OrderPlacedEvent;
@@ -10,13 +10,12 @@ import com.akul.microservices.order.mappers.OrderMapper;
 import com.akul.microservices.order.model.Order;
 import com.akul.microservices.order.model.UserDetails;
 import com.akul.microservices.order.repository.OrderRepository;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +24,6 @@ import java.util.UUID;
  * OrderService.java
  *
  * @author Andrii Kulynch
- * @version 1.0
  * @since 8/22/2025
  */
 
@@ -37,12 +35,18 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
-    private final InventoryClient inventoryClient;
+    private final InventoryRestClient inventoryClient;
     private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
-        var isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
+        boolean isInStock;
+
+        try {
+            isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
+        } catch (Exception e) {
+            isInStock = inventoryFallback(orderRequest.skuCode(), orderRequest.quantity(), e);
+        }
 
         if (isInStock) {
             Order order = orderMapper.toEntity(orderRequest);
@@ -87,6 +91,9 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> getAllOrders() {
         List<Order> orders = orderRepository.findAll();
+        if (orders.isEmpty()) {
+            throw new OrderNotFoundException("No orders found");
+        }
 
         return orderMapper.toDto(orders);
     }
@@ -118,5 +125,10 @@ public class OrderService {
         log.info("Order updated: {}", orderId);
 
         return orderMapper.toDto(updatedOrder);
+    }
+
+    public boolean inventoryFallback(String skuId, Integer quantity, Throwable t) {
+        log.warn("Inventory service is down, fallback called for skuCode={}", skuId);
+        return false;
     }
 }
