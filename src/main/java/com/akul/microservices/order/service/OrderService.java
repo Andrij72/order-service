@@ -11,9 +11,9 @@ import com.akul.microservices.order.model.Order;
 import com.akul.microservices.order.model.UserDetails;
 import com.akul.microservices.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.retry.annotation.CircuitBreaker;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,12 +26,10 @@ import java.util.UUID;
  * @author Andrii Kulynch
  * @since 8/22/2025
  */
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
-    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
@@ -40,42 +38,32 @@ public class OrderService {
 
     @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
-        boolean isInStock;
 
-        try {
-            isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
-        } catch (Exception e) {
-            isInStock = inventoryFallback(orderRequest.skuCode(), orderRequest.quantity(), e);
-        }
+        boolean isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
 
-        if (isInStock) {
-            Order order = orderMapper.toEntity(orderRequest);
-            if (order.getOrderNbr() == null) {
-                order.setOrderNbr(UUID.randomUUID().toString());
-            }
-
-            Order savedOrder = orderRepository.save(order);
-
-            log.info("New order placed: {}", savedOrder.getOrderNbr());
-
-            OrderPlacedEvent event = new OrderPlacedEvent(
-                    order.getOrderNbr().toString(),
-                    order.getUserDetails().getEmail(),
-                    order.getUserDetails().getFirstName(),
-                    order.getUserDetails().getLastName()
-            );
-            log.info("Start. Sending OrderPlacedEvent {} to Kafka", order.getOrderNbr());
-            kafkaTemplate.send("order-placed", event);
-
-            log.info("End. Sending OrderPlacedEvent {} to Kafka", order.getOrderNbr());
-            log.info("Sending event to Kafka: {}", event);
-
-            return orderMapper.toDto(order);
-
-        } else {
+        if (!isInStock) {
             throw new ProductOutOfStockException(orderRequest.skuCode());
         }
 
+        Order order = orderMapper.toEntity(orderRequest);
+        if (order.getOrderNbr() == null) {
+            order.setOrderNbr(UUID.randomUUID().toString());
+        }
+
+        Order savedOrder = orderRepository.save(order);
+        log.info("New order placed: {}", savedOrder.getOrderNbr());
+
+        OrderPlacedEvent event = new OrderPlacedEvent(
+                order.getOrderNbr().toString(),
+                order.getUserDetails().getEmail(),
+                order.getUserDetails().getFirstName(),
+                order.getUserDetails().getLastName()
+        );
+
+        kafkaTemplate.send("order-placed", event);
+        log.info("Sending event to Kafka: {}", event);
+
+        return orderMapper.toDto(order);
     }
 
     @Transactional(readOnly = true)
@@ -125,10 +113,5 @@ public class OrderService {
         log.info("Order updated: {}", orderId);
 
         return orderMapper.toDto(updatedOrder);
-    }
-
-    public boolean inventoryFallback(String skuId, Integer quantity, Throwable t) {
-        log.warn("Inventory service is down, fallback called for skuCode={}", skuId);
-        return false;
     }
 }

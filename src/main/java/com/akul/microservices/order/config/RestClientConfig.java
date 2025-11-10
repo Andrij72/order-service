@@ -5,9 +5,12 @@ import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
+
+import java.time.Duration;
 
 @Profile("!test")
 @Configuration
@@ -23,6 +26,7 @@ public class RestClientConfig {
     public InventoryRestClient inventoryClient(RestClient.Builder builder) {
         RestClient restClient = builder
                 .baseUrl("lb://inventory-service")
+                .requestFactory(getRequestFactory())
                 .build();
 
         HttpServiceProxyFactory factory = HttpServiceProxyFactory
@@ -31,4 +35,12 @@ public class RestClientConfig {
 
         return factory.createClient(InventoryRestClient.class);
     }
+
+    private SimpleClientHttpRequestFactory getRequestFactory() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofSeconds(3).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(3).toMillis());
+        return factory;
+    }
+
 }

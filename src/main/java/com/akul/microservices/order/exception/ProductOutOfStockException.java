@@ -1,5 +1,7 @@
 package com.akul.microservices.order.exception;
 
+import lombok.Getter;
+
 /**
  * ProductOutStockException.java
  *
@@ -7,8 +9,13 @@ package com.akul.microservices.order.exception;
  * @version 1.0
  * @since 9/2/2025
  */
+@Getter
 public class ProductOutOfStockException extends RuntimeException {
+    private final String skuCode;
+
     public ProductOutOfStockException(String skuCode) {
-       super("Order with skuCode " + skuCode + " not found in stock");
+        super("Product with SKU '" + skuCode + "' is out of stock");
+        this.skuCode = skuCode;
     }
+
 }
