@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * OderController.java
  *
- * @author Andrii Kulynch
+ * @author Andrii Kulynych
  * @version 1.0
  * @since 8/22/2025
  */
@@ -55,8 +55,8 @@ public class OrderController {
 
     @DeleteMapping("/{orderNbr}")
     public ResponseEntity<String> deleteOrder(@PathVariable String orderNbr) {
-                orderService.deleteOrder(orderNbr);
-        return ResponseEntity.ok("Order with " +orderNbr + " successfully deleted ");
+        orderService.deleteOrder(orderNbr);
+        return ResponseEntity.ok("Order with " + orderNbr + " successfully deleted ");
     }
 
     @PutMapping("/{orderNbr}")
