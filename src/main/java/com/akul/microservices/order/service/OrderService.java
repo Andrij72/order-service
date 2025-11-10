@@ -1,6 +1,6 @@
 package com.akul.microservices.order.service;
 
-import com.akul.microservices.order.client.InventoryClient;
+import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.event.OrderPlacedEvent;
@@ -10,13 +10,12 @@ import com.akul.microservices.order.mappers.OrderMapper;
 import com.akul.microservices.order.model.Order;
 import com.akul.microservices.order.model.UserDetails;
 import com.akul.microservices.order.repository.OrderRepository;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.retry.annotation.CircuitBreaker;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -25,53 +24,46 @@ import java.util.UUID;
  * OrderService.java
  *
  * @author Andrii Kulynch
- * @version 1.0
  * @since 8/22/2025
  */
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
-    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
-
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
-    private final InventoryClient inventoryClient;
+    private final InventoryRestClient inventoryClient;
     private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
-        var isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
 
-        if (isInStock) {
-            Order order = orderMapper.toEntity(orderRequest);
-            if (order.getOrderNbr() == null) {
-                order.setOrderNbr(UUID.randomUUID().toString());
-            }
+        boolean isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
 
-            Order savedOrder = orderRepository.save(order);
-
-            log.info("New order placed: {}", savedOrder.getOrderNbr());
-
-            OrderPlacedEvent event = new OrderPlacedEvent(
-                    order.getOrderNbr().toString(),
-                    order.getUserDetails().getEmail(),
-                    order.getUserDetails().getFirstName(),
-                    order.getUserDetails().getLastName()
-            );
-            log.info("Start. Sending OrderPlacedEvent {} to Kafka", order.getOrderNbr());
-            kafkaTemplate.send("order-placed", event);
-
-            log.info("End. Sending OrderPlacedEvent {} to Kafka", order.getOrderNbr());
-            log.info("Sending event to Kafka: {}", event);
-
-            return orderMapper.toDto(order);
-
-        } else {
+        if (!isInStock) {
             throw new ProductOutOfStockException(orderRequest.skuCode());
         }
 
+        Order order = orderMapper.toEntity(orderRequest);
+        if (order.getOrderNbr() == null) {
+            order.setOrderNbr(UUID.randomUUID().toString());
+        }
+
+        Order savedOrder = orderRepository.save(order);
+        log.info("New order placed: {}", savedOrder.getOrderNbr());
+
+        OrderPlacedEvent event = new OrderPlacedEvent(
+                order.getOrderNbr().toString(),
+                order.getUserDetails().getEmail(),
+                order.getUserDetails().getFirstName(),
+                order.getUserDetails().getLastName()
+        );
+
+        kafkaTemplate.send("order-placed", event);
+        log.info("Sending event to Kafka: {}", event);
+
+        return orderMapper.toDto(order);
     }
 
     @Transactional(readOnly = true)
@@ -87,6 +79,9 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> getAllOrders() {
         List<Order> orders = orderRepository.findAll();
+        if (orders.isEmpty()) {
+            throw new OrderNotFoundException("No orders found");
+        }
 
         return orderMapper.toDto(orders);
     }
