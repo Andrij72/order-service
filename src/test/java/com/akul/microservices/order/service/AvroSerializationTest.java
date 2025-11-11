@@ -1,5 +1,6 @@
 package com.akul.microservices.order.service;
 
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -12,11 +13,13 @@ import java.util.Map;
 public class AvroSerializationTest {
 
     @Test
-    void testSerializeOrder() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("schema.registry.url", "http://localhost:8085");
+    void testSerializeOrder() throws Exception {
+        MockSchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
 
-        KafkaAvroSerializer serializer = new KafkaAvroSerializer();
+        Map<String, Object> config = new HashMap<>();
+        config.put("schema.registry.url", "mock://test");
+
+        KafkaAvroSerializer serializer = new KafkaAvroSerializer(schemaRegistry);
         serializer.configure(config, false);
 
         String schemaString = "{\n" +
@@ -39,8 +42,8 @@ public class AvroSerializationTest {
                               "  ]\n" +
                               "}";
 
-        Schema.Parser parser = new Schema.Parser();
-        Schema schema = parser.parse(schemaString);
+        Schema schema = new Schema.Parser().parse(schemaString);
+        schemaRegistry.register("com.example.OrderPlaced", schema);
 
         GenericRecord userDetails = new GenericData.Record(schema.getField("userDetails").schema());
         userDetails.put("email", "andrii@example.com");
