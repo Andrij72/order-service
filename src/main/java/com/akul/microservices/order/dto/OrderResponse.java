@@ -1,12 +1,9 @@
 package com.akul.microservices.order.dto;
 
-import com.akul.microservices.order.model.Order;
-import com.akul.microservices.order.model.UserDetails;
-
 import java.math.BigDecimal;
 
 /**
- * OrderResponse.java
+ * OrderResponse.java.
  *
  * @author Andrii Kulynch
  * @version 1.0
@@ -22,5 +19,7 @@ public record OrderResponse(String orderNbr,
             String email,
             String firstName,
             String lastName
-    ) {}
+    ) {
+
+    }
 }

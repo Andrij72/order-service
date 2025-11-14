@@ -13,7 +13,6 @@ import com.akul.microservices.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.retry.annotation.CircuitBreaker;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * OrderService.java
+ * OrderService.java.
  *
  * @author Andrii Kulynch
  * @since 8/22/2025
@@ -39,7 +38,8 @@ public class OrderService {
     @Transactional
     public OrderResponse placeOrder(OrderRequest orderRequest) {
 
-        boolean isInStock = inventoryClient.isProductInStock(orderRequest.skuCode(), orderRequest.quantity());
+        boolean isInStock = inventoryClient.isProductInStock(
+                orderRequest.skuCode(), orderRequest.quantity());
 
         if (!isInStock) {
             throw new ProductOutOfStockException(orderRequest.skuCode());

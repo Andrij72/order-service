@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * GlobalExceptionHandler.java
+ * GlobalExceptionHandler.java.
  *
  * @author Andrii Kulynch
  * @version 1.0
@@ -21,7 +21,8 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(OrderNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleOrderNotFound(OrderNotFoundException ex) {
+    public ResponseEntity<Map<String, Object>> handleOrderNotFound(
+            OrderNotFoundException ex) {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("timestamp", LocalDateTime.now());
         errorResponse.put("status", HttpStatus.NOT_FOUND.value());
@@ -42,7 +43,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ProductOutOfStockException.class)
-    public ResponseEntity<Map<String, Object>> handleProductOutOfStock(ProductOutOfStockException ex) {
+    public ResponseEntity<Map<String, Object>> handleProductOutOfStock(
+            ProductOutOfStockException ex) {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("timestamp", LocalDateTime.now());
         errorResponse.put("status", HttpStatus.NOT_FOUND.value());
@@ -52,12 +54,14 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InventoryUnavailableException.class)
-    public ResponseEntity<Map<String, Object>> handleInventoryUnavailable(InventoryUnavailableException ex) {
+    public ResponseEntity<Map<String, Object>> handleInventoryUnavailable(
+            InventoryUnavailableException ex) {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("timestamp", LocalDateTime.now());
         errorResponse.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
         errorResponse.put("error", "Service Unavailable");
         errorResponse.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(errorResponse);
     }
 }

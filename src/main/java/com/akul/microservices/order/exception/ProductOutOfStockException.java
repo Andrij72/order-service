@@ -3,7 +3,7 @@ package com.akul.microservices.order.exception;
 import lombok.Getter;
 
 /**
- * ProductOutStockException.java
+ * ProductOutStockException.java.
  *
  * @author Andrii Kulynch
  * @version 1.0

@@ -1,7 +1,7 @@
 package com.akul.microservices.order.exception;
 
 /**
- * OrderNotFoundException.java
+ * OrderNotFoundException.java.
  *
  * @author Andrii Kulynch
  * @version 1.0

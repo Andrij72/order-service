@@ -1,6 +1,8 @@
 package com.akul.microservices.order.config;
 
 import com.akul.microservices.order.client.InventoryRestClient;
+import io.micrometer.observation.ObservationRegistry;
+import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +16,10 @@ import java.time.Duration;
 
 @Profile("!test")
 @Configuration
+@RequiredArgsConstructor
 public class RestClientConfig {
+
+    private final ObservationRegistry observationRegistry;
 
     @Bean
     @LoadBalanced
@@ -26,6 +31,7 @@ public class RestClientConfig {
     public InventoryRestClient inventoryClient(RestClient.Builder builder) {
         RestClient restClient = builder
                 .baseUrl("lb://inventory-service")
+                .observationRegistry(observationRegistry)
                 .requestFactory(getRequestFactory())
                 .build();
 
@@ -37,10 +43,10 @@ public class RestClientConfig {
     }
 
     private SimpleClientHttpRequestFactory getRequestFactory() {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory =
+                new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) Duration.ofSeconds(3).toMillis());
         factory.setReadTimeout((int) Duration.ofSeconds(3).toMillis());
         return factory;
     }
-
 }

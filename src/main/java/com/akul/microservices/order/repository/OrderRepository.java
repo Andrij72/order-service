@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 /**
- * OrderRepository.java
+ * OrderRepository.java.
  *
  * @author Andrii Kulynch
  * @version 1.0

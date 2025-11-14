@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * OderController.java
+ * OderController.java.
  *
  * @author Andrii Kulynych
  * @version 1.0
@@ -36,13 +36,15 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderRequest orderRequest) {
+    public ResponseEntity<OrderResponse> createOrder(
+            @RequestBody @Valid OrderRequest orderRequest) {
         OrderResponse response = orderService.placeOrder(orderRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{orderNbr}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable String orderNbr) {
+    public ResponseEntity<OrderResponse> getOrder(
+            @PathVariable String orderNbr) {
         OrderResponse response = orderService.getOrder(orderNbr);
         return ResponseEntity.ok(response);
     }
@@ -54,14 +56,17 @@ public class OrderController {
     }
 
     @DeleteMapping("/{orderNbr}")
-    public ResponseEntity<String> deleteOrder(@PathVariable String orderNbr) {
+    public ResponseEntity<String> deleteOrder(
+            @PathVariable String orderNbr) {
         orderService.deleteOrder(orderNbr);
-        return ResponseEntity.ok("Order with " + orderNbr + " successfully deleted ");
+        return ResponseEntity.ok("Order with "
+                                 + orderNbr + " successfully deleted ");
     }
 
     @PutMapping("/{orderNbr}")
-    public ResponseEntity<OrderResponse> updateOrder(@PathVariable String orderNbr,
-                                                     @RequestBody @Valid OrderRequest orderRequest) {
+    public ResponseEntity<OrderResponse> updateOrder(
+            @PathVariable String orderNbr,
+            @RequestBody @Valid OrderRequest orderRequest) {
         OrderResponse response = orderService.update(orderNbr, orderRequest);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
