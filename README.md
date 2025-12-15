@@ -70,13 +70,24 @@ It communicates with other services and infrastructure as follows:
 
 ## 📌 REST API Endpoints
 
-| Method | Endpoint                        | Description                       |
-|--------|---------------------------------|-----------------------------------|
-| POST   | `/api/v1/orders`                | Create a new order                |
-| GET    | `/api/v1/orders/{orderNbr}`     | Retrieve an order by number       |
-| GET    | `/api/v1/orders`                | Retrieve all orders               |
-| PUT    | `/api/v1/orders/{orderNbr}`     | Update an existing order          |
-| DELETE | `/api/v1/orders/{orderNbr}`     | Delete an order by number         |
+| Method | Endpoint                           | Description                        |
+|--------|------------------------------------|------------------------------------|
+| POST   | `/api/v1/orders`                   | Create a new order                 |
+| GET    | `/api/v1/orders/{orderNumber}`        | Retrieve an order by number        |
+| GET    | `/api/v1/orders`                   | Retrieve all orders                |
+| PUT    | `/api/v1/orders/{orderNumber}`        | Update an existing order           |
+| DELETE | `/api/v1/orders/{orderNumber}`        | Delete an order by number          |
+| PATCH  | `/api/v1/orders/{orderNumber}/status` | Update only the status of an order |
+
+#### 📌 Order Status Updates
+
+Order Service now supports order status management. Orders can have the following statuses:
+1. [x] PENDING – Order created but not paid yet
+2. [x] PAID – Order successfully paid
+3. [x] CANCELLED – Order cancelled by user or system
+4. [x] FAILED – Payment or processing failed
+5. [x] DELIVERING – Order is out for delivery
+6. [x] COMPLETED – Order successfully delivered
 
 ---
  ▶️ Running Locally
@@ -133,10 +144,10 @@ Import the Postman collection from the project root:
 
 This collection includes the following requests:
 - **Create Order** (POST `/api/v1/orders`)
-- **Get Order by ID** (GET `/api/v1/orders/{orderNbr}`)
+- **Get Order by ID** (GET `/api/v1/orders/{orderNumber}`)
 - **Get All Orders** (GET `/api/v1/orders`)
-- **Update Order** (PUT `/api/v1/orders/{orderNbr}`)
-- **Delete Order** (DELETE `/api/v1/orders/{orderNbr}`)
+- **Update Order** (PUT `/api/v1/orders/{orderNumber}`)
+- **Delete Order** (DELETE `/api/v1/orders/{orderNumber}`)
 
 ---
 ## 🧪 Integration Tests

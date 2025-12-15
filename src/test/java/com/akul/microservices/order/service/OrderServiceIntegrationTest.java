@@ -1,12 +1,12 @@
 package com.akul.microservices.order.service;
 
-import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.model.Order;
+import com.akul.microservices.order.model.OrderItem;
+import com.akul.microservices.order.model.OrderStatus;
 import com.akul.microservices.order.model.UserDetails;
 import com.akul.microservices.order.repository.OrderRepository;
 import com.akul.microservices.order.stubs.InventoryClientStub;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import io.restassured.RestAssured;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,9 +15,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -25,6 +28,8 @@ import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -33,16 +38,18 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ActiveProfiles("test")
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+@AutoConfigureWireMock(port = 0)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "spring.flyway.enabled=false",
                 "spring.cloud.discovery.enabled=false",
                 "eureka.client.enabled=false"
-        })
+        }
+)
 class OrderServiceIntegrationTest {
 
     @Autowired
@@ -52,7 +59,7 @@ class OrderServiceIntegrationTest {
     private WireMockServer wireMockServer;
 
     @Autowired
-    private InventoryRestClient inventoryClient;
+    private PlatformTransactionManager txManager;
 
     @LocalServerPort
     private int port;
@@ -62,119 +69,142 @@ class OrderServiceIntegrationTest {
             new KafkaContainer(DockerImageName.parse("apache/kafka:3.7.0"));
 
     @ServiceConnection
-    static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.3.0")
-            .withDatabaseName("orderdb")
-            .withUsername("test")
-            .withPassword("test")
-            .withInitScript("schema.sql");
-
+    static MySQLContainer<?> mysql =
+            new MySQLContainer<>("mysql:8.3.0")
+                    .withDatabaseName("orderdb")
+                    .withUsername("test")
+                    .withPassword("test")
+                    .withInitScript("schema.sql");
 
     @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
+    static void registerKafka(DynamicPropertyRegistry registry) {
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-    }
-
-    @BeforeEach
-    void setup() {
-        WireMock.configureFor("localhost", wireMockServer.port());
-        wireMockServer.stubFor(WireMock.get("/api/v1/inventory")
-                .willReturn(WireMock.aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("true")));
     }
 
     @BeforeEach
     void setUp() {
         RestAssured.baseURI = "http://localhost";
         RestAssured.port = port;
+
         orderRepository.deleteAll();
         wireMockServer.resetAll();
-        InventoryClientStub.stubInventoryCall("iphone_15", 1, wireMockServer);
-        System.out.println(" WireMockServer running on port: " + wireMockServer.port());
+
+        InventoryClientStub.stubInventoryCall("Samsung-90", 2, wireMockServer);
+        InventoryClientStub.stubInventoryCall("iPhone-15", 1, wireMockServer);
     }
 
+    // ---------------------------------------------------------------------
+    // CREATE ORDER
+    // ---------------------------------------------------------------------
     @Test
-    void contextLoads() {
-    }
-
-    @Test
-    void shouldSubmitOrder() {
-        boolean inStock = inventoryClient.isProductInStock("iphone_15", 1);
-        assertTrue(inStock, "Product should be in stock");
-
-        WireMock.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/api/v1/inventory?skuCode=iphone_15&quantity=1")));
-
+    void shouldSubmitOrder_withMultipleItems() {
         String orderJson = """
-                {
-                  "skuCode": "iphone_15",
-                  "price": 1000.0,
-                  "quantity": 1,
-                  "userDetails": {
-                    "email": "andrii@example.com",
-                    "firstName": "Andrii",
-                    "lastName": "K"
-                  }
-                }
-                """;
+        {
+          "orderNumber": "6ccc23bd-4661-4a75-8989-d4d56e8d9a57",
+          "userDetails": {
+            "email": "andrii@example.com",
+            "firstName": "Andrii",
+            "lastName": "K"
+          },
+          "items": [
+            {"sku": "Samsung-90", "price": 1200.00, "quantity": 2},
+            {"sku": "iPhone-15", "price": 1500.00, "quantity": 1}
+          ],
+          "status":"PENDING"
+        }
+        """;
 
         given()
-                .port(port)
                 .contentType("application/json")
                 .body(orderJson)
                 .when()
                 .post("/api/v1/orders")
                 .then()
-                .log().all()
                 .statusCode(201)
-                .body("skuCode", Matchers.is("iphone_15"))
-                .body("userDetails.email", Matchers.is("andrii@example.com"))
-                .body("orderNbr", Matchers.notNullValue());
+                .body("status", Matchers.is("PENDING"))
+                .body("items", Matchers.hasSize(2))
+                .body("items[0].sku", Matchers.is("Samsung-90"))
+                .body("items[1].sku", Matchers.is("iPhone-15"))
+                .body("userDetails.email", Matchers.is("andrii@example.com"));
+
 
         verify(getRequestedFor(urlPathEqualTo("/api/v1/inventory"))
-                .withQueryParam("skuCode", equalTo("iphone_15"))
+                .withQueryParam("sku", equalTo("Samsung-90"))
+                .withQueryParam("quantity", equalTo("2")));
+        verify(getRequestedFor(urlPathEqualTo("/api/v1/inventory"))
+                .withQueryParam("sku", equalTo("iPhone-15"))
                 .withQueryParam("quantity", equalTo("1")));
 
 
-        var savedOrders = orderRepository.findAll();
-        assertThat(savedOrders).hasSize(1);
-        assertThat(savedOrders.get(0).getSkuCode()).isEqualTo("iphone_15");
+        TransactionTemplate template = new TransactionTemplate(txManager);
+        template.execute(status -> {
+            List<Order> orders = orderRepository.findAll();
+            assertThat(orders).hasSize(1);
+
+            Order savedOrder = orders.get(0);
+            assertThat(savedOrder.getItems()).hasSize(2);
+            assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
+            return null;
+        });
 
     }
 
+    // ---------------------------------------------------------------------
+    // GET ORDER
+    // ---------------------------------------------------------------------
     @Test
     void shouldRetrieveExistingOrder() {
-        Order order = Order.builder()
-                .orderNbr(UUID.randomUUID().toString())
-                .skuCode("iphone_15")
-                .price(BigDecimal.valueOf(1000))
-                .quantity(1)
-                .userDetails(new UserDetails("andrii@example.com", "Andrii", "K"))
+
+        OrderItem orderItem1 = OrderItem.builder()
+                .sku("Samsung-90")
+                .price(BigDecimal.valueOf(1500))
+                .quantity(2)
                 .build();
+
+        OrderItem orderItem2 = OrderItem.builder()
+        .sku("iPhone-15")
+                .price(BigDecimal.valueOf(1200))
+                .quantity(1)
+                .build();
+
+        Order order = Order.builder()
+                .orderNumber(UUID.randomUUID().toString())
+                .status(OrderStatus.PENDING)
+                .userDetails(new UserDetails(
+                        "andrii@example.com",
+                        "Andrii",
+                        "K"
+                ))
+
+
+                .build();
+
+        order.setItems(Arrays.asList(orderItem1, orderItem2));
+        orderItem1.setOrder(order);
+        orderItem2.setOrder(order);
+
+
 
         orderRepository.save(order);
 
         given()
-                .contentType("application/json")
                 .when()
-                .get("/api/v1/orders/" + order.getOrderNbr())
+                .get("/api/v1/orders/" + order.getOrderNumber())
                 .then()
-                .log().all()
                 .statusCode(200)
-                .body("orderNbr", Matchers.is(order.getOrderNbr()))
-                .body("skuCode", Matchers.is(order.getSkuCode()))
-                .body("price", Matchers.is(1000.0F))
-                .body("quantity", Matchers.is(1))
-                .body("userDetails.email", Matchers.is("andrii@example.com"));
+                .body("orderNumber", Matchers.is(order.getOrderNumber()))
+                .body("items", Matchers.hasSize(2))
+                .body("userDetails.firstName", Matchers.is("Andrii"));
     }
-
+    // ---------------------------------------------------------------------
+    // NOT FOUND
+    // ---------------------------------------------------------------------
     @Test
-    void shouldReturnNotFoundForNonExistingOrder() {
+    void shouldReturn404ForNonExistingOrder() {
         given()
-                .contentType("application/json")
                 .when()
-                .get("/api/v1/orders/non-existing-nbr")
+                .get("/api/v1/orders/not-exist")
                 .then()
-                .log().all()
                 .statusCode(404);
     }
 }

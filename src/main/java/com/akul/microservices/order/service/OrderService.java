@@ -6,9 +6,10 @@ import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.exception.OrderNotFoundException;
 import com.akul.microservices.order.exception.ProductOutOfStockException;
+import com.akul.microservices.order.mappers.OrderEventMapper;
 import com.akul.microservices.order.mappers.OrderMapper;
 import com.akul.microservices.order.model.Order;
-import com.akul.microservices.order.model.UserDetails;
+import com.akul.microservices.order.model.OrderStatus;
 import com.akul.microservices.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+
 
 /**
  * OrderService.java.
@@ -31,87 +33,119 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final OrderMapper orderMapper;
+    private final OrderMapper mapper;
     private final InventoryRestClient inventoryClient;
     private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
+    // ---------------------------------------------------------------------
+    // CREATE
+    // ---------------------------------------------------------------------
     @Transactional
-    public OrderResponse placeOrder(OrderRequest orderRequest) {
+    public OrderResponse placeOrder(OrderRequest request) {
 
-        boolean isInStock = inventoryClient.isProductInStock(
-                orderRequest.skuCode(), orderRequest.quantity());
+        request.items().forEach(item -> {
+            boolean inStock =
+                    inventoryClient.isProductInStock(item.sku(), item.quantity());
+            if (!inStock) {
+                throw new ProductOutOfStockException(item.sku());
+            }
+        });
 
-        if (!isInStock) {
-            throw new ProductOutOfStockException(orderRequest.skuCode());
-        }
+        Order order = mapper.toEntity(request);
 
-        Order order = orderMapper.toEntity(orderRequest);
-        if (order.getOrderNbr() == null) {
-            order.setOrderNbr(UUID.randomUUID().toString());
-        }
+        mapper.updateItems(order, request.items());
 
-        Order savedOrder = orderRepository.save(order);
-        log.info("New order placed: {}", savedOrder.getOrderNbr());
+        order.setOrderNumber(UUID.randomUUID().toString());
+        order.setStatus(OrderStatus.PENDING);
 
-        OrderPlacedEvent event = new OrderPlacedEvent(
-                order.getOrderNbr().toString(),
-                order.getUserDetails().getEmail(),
-                order.getUserDetails().getFirstName(),
-                order.getUserDetails().getLastName()
+        order.getItems().forEach(i -> i.setOrder(order));
+
+        Order saved = orderRepository.save(order);
+
+        OrderPlacedEvent event = OrderEventMapper.map(saved);
+        kafkaTemplate.send("order-placed", event);
+
+        log.info("Order placed: {}", saved.getOrderNumber());
+        return mapper.toResponse(saved);
+    }
+
+    // ---------------------------------------------------------------------
+    // UPDATE STATUS
+    // ---------------------------------------------------------------------
+    @Transactional
+    public OrderResponse updateStatus(String orderNumber, String status) {
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderNotFoundException(orderNumber));
+
+        mapper.updateStatus(order, status);
+
+        Order saved = orderRepository.save(order);
+
+        kafkaTemplate.send(
+                "order-status-updated",
+                OrderEventMapper.map(saved)
         );
 
-        kafkaTemplate.send("order-placed", event);
-        log.info("Sending event to Kafka: {}", event);
-
-        return orderMapper.toDto(order);
+        log.info("Order status updated: {}", saved.getOrderNumber());
+        return mapper.toResponse(saved);
     }
 
+    // ---------------------------------------------------------------------
+    // UPDATE FULL ORDER
+    // ---------------------------------------------------------------------
+    @Transactional
+    public OrderResponse update(String orderNumber, OrderRequest request) {
+
+        Order existing = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderNotFoundException(orderNumber));
+        existing.setUserDetails(
+                mapper.toEntity(request.userDetails())
+        );
+
+        mapper.updateItems(existing, request.items());
+
+        Order saved = orderRepository.save(existing);
+        log.info("Order updated: {}", saved.getOrderNumber());
+
+        return mapper.toResponse(saved);
+    }
+
+    // ---------------------------------------------------------------------
+    // GET ONE
+    // ---------------------------------------------------------------------
     @Transactional(readOnly = true)
-    public OrderResponse getOrder(String orderId) {
-        Order order = orderRepository.findByOrderNbr(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    public OrderResponse getOrder(String orderNumber) {
 
-        log.info("Order retrieved: {}", orderId);
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderNotFoundException(orderNumber));
 
-        return orderMapper.toDto(order);
+        return mapper.toResponse(order);
     }
 
+    // ---------------------------------------------------------------------
+    // GET ALL
+    // ---------------------------------------------------------------------
     @Transactional(readOnly = true)
     public List<OrderResponse> getAllOrders() {
-        List<Order> orders = orderRepository.findAll();
-        if (orders.isEmpty()) {
-            throw new OrderNotFoundException("No orders found");
-        }
 
-        return orderMapper.toDto(orders);
+        return orderRepository.findAll()
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
     }
 
+    // ---------------------------------------------------------------------
+    // DELETE
+    // ---------------------------------------------------------------------
     @Transactional
-    public void deleteOrder(String orderId) {
-        Order order = orderRepository.findByOrderNbr(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    public void deleteOrder(String orderNumber) {
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new OrderNotFoundException(orderNumber));
+
         orderRepository.delete(order);
-        log.info("Order deleted: {}", orderId);
-    }
 
-    @Transactional
-    public OrderResponse update(String orderId, OrderRequest orderRequest) {
-
-        Order updatedOrder = orderRepository.findByOrderNbr(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-
-        updatedOrder.setQuantity(orderRequest.quantity());
-        updatedOrder.setPrice(orderRequest.price());
-        updatedOrder.setUserDetails(new UserDetails(
-                        orderRequest.userDetails().email(),
-                        orderRequest.userDetails().firstName(),
-                        orderRequest.userDetails().lastName()
-                )
-        );
-
-        orderRepository.save(updatedOrder);
-        log.info("Order updated: {}", orderId);
-
-        return orderMapper.toDto(updatedOrder);
+        log.info("Order deleted: {}", orderNumber);
     }
 }

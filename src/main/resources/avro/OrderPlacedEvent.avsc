@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "name": "OrderPlacedEvent",
+  "namespace": "com.akul.microservices.order.event",
+  "fields": [
+    { "name": "orderNbr", "type": "string" },
+    { "name": "email", "type": "string" },
+    { "name": "firstName", "type": "string" },
+    { "name": "lastName", "type": "string" },
+
+    {
+      "name": "status",
+      "type": "string",
+      "default": "PENDING"
+    },
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OrderItem",
+          "fields": [
+            { "name": "sku", "type": "string" },
+            { "name": "price", "type": "double" },
+            { "name": "quantity", "type": "int" }
+          ]
+        }
+      },
+      "default": []
+    }
+  ]
+}

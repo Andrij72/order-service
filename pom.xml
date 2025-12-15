@@ -248,7 +248,6 @@
                 <version>1.11.3</version>
                 <executions>
                     <execution>
-                        <id>schemas</id>
                         <phase>generate-sources</phase>
                         <goals>
                             <goal>schema</goal>

@@ -25,16 +25,16 @@ public interface InventoryRestClient {
     @Retry(name = "inventoryServiceCB")
     @Bulkhead(name = "inventoryServiceCB")
     @GetExchange("/api/v1/inventory")
-    boolean isProductInStock(@RequestParam String skuCode,
+    boolean isProductInStock(@RequestParam String sku,
                              @RequestParam Integer quantity);
 
-    default boolean inventoryFallback(String skuCode,
+    default boolean inventoryFallback(String sku,
                                       Integer quantity,
                                       Throwable throwable) {
         log.error(
-                "*** Inventory service unavailable for skuCode={} quantity={}."
+                "*** Inventory service unavailable for sku={} quantity={}."
                 + " Reason: {}",
-                skuCode, quantity, throwable.getMessage()
+                sku, quantity, throwable.getMessage()
         );
         throw new InventoryUnavailableException(
                 "Inventory service is currently unavailable."

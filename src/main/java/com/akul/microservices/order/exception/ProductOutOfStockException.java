@@ -11,11 +11,11 @@ import lombok.Getter;
  */
 @Getter
 public class ProductOutOfStockException extends RuntimeException {
-    private final String skuCode;
+    private final String sku;
 
-    public ProductOutOfStockException(String skuCode) {
-        super("Product with SKU '" + skuCode + "' is out of stock");
-        this.skuCode = skuCode;
+    public ProductOutOfStockException(String sku) {
+        super("Product with SKU '" + sku + "' is out of stock");
+        this.sku = sku;
     }
 
 }

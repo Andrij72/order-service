@@ -2,7 +2,6 @@ package com.akul.microservices.order.service;
 
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
-import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.repository.OrderRepository;
 import kafka.server.ReplicaManager;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -106,7 +105,7 @@ class OrderServiceKafkaIntegrationTest {
 //
 //        OrderPlacedEvent event = record.value();
 //
-//        assertEquals(response.orderNbr(), event.getOrderNbr());
+//        assertEquals(response.orderNumber(), event.getOrderNumber());
 //        assertEquals(request.userDetails().email(), event.getEmail());
 //        assertEquals(request.userDetails().firstName(), event.getFirstName());
 //        assertEquals(request.userDetails().lastName(), event.getLastName());
