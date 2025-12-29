@@ -4,6 +4,7 @@ import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.event.OrderPlacedEvent;
+import com.akul.microservices.order.exception.NotAcceptableItemException;
 import com.akul.microservices.order.exception.OrderNotFoundException;
 import com.akul.microservices.order.exception.ProductOutOfStockException;
 import com.akul.microservices.order.mappers.OrderEventMapper;
@@ -41,7 +42,11 @@ public class OrderService {
     // CREATE
     // ---------------------------------------------------------------------
     @Transactional
-    public OrderResponse placeOrder(OrderRequest request) {
+    public OrderResponse placeOrder(OrderRequest request){
+
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new NotAcceptableItemException();
+        }
 
         request.items().forEach(item -> {
             boolean inStock =

@@ -1,6 +1,7 @@
 package com.akul.microservices.order.model;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,4 +56,7 @@ public class Order {
     public void prePersist() {
         if (status == null) status = OrderStatus.PENDING;
     }
+
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
 }

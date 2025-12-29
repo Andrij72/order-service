@@ -1,6 +1,7 @@
 package com.akul.microservices.order.dto;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -14,7 +15,8 @@ public record OrderResponse(
         String orderNumber,
         UserDetails userDetails,
         List<OrderItemResponse> items,
-        String status
+        String status,
+        Instant createdAt
 ) {
     public record UserDetails(
             String email,

@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,5 +64,19 @@ public class GlobalExceptionHandler {
         errorResponse.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(errorResponse);
+    }
+
+    @ExceptionHandler(NotAcceptableItemException.class)
+    public ResponseEntity<Map<String, Object>> handleNotAcceptableItem(
+            NotAcceptableItemException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_ACCEPTABLE) // 406
+                .body(Map.of(
+                        "timestamp", Instant.now(),
+                        "status", 406,
+                        "error", "Not Acceptable",
+                        "message", ex.getMessage()
+                ));
     }
 }
