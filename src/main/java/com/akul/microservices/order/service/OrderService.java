@@ -3,7 +3,9 @@ package com.akul.microservices.order.service;
 import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
+import com.akul.microservices.order.dto.PageRequestDto;
 import com.akul.microservices.order.event.OrderPlacedEvent;
+import com.akul.microservices.order.exception.BadRequestException;
 import com.akul.microservices.order.exception.NotAcceptableItemException;
 import com.akul.microservices.order.exception.OrderNotFoundException;
 import com.akul.microservices.order.exception.ProductOutOfStockException;
@@ -14,11 +16,17 @@ import com.akul.microservices.order.model.OrderStatus;
 import com.akul.microservices.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 
@@ -32,6 +40,12 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+    private static final Set<String> SORT_WHITELIST = Set.of(
+            "createdAt",
+            "updatedAt",
+            "status",
+            "orderNumber"
+    );
 
     private final OrderRepository orderRepository;
     private final OrderMapper mapper;
@@ -42,7 +56,7 @@ public class OrderService {
     // CREATE
     // ---------------------------------------------------------------------
     @Transactional
-    public OrderResponse placeOrder(OrderRequest request){
+    public OrderResponse placeOrder(OrderRequest request) {
 
         if (request.items() == null || request.items().isEmpty()) {
             throw new NotAcceptableItemException();
@@ -61,8 +75,6 @@ public class OrderService {
         mapper.updateItems(order, request.items());
 
         order.setOrderNumber(UUID.randomUUID().toString());
-        order.setStatus(OrderStatus.PENDING);
-
         order.getItems().forEach(i -> i.setOrder(order));
 
         Order saved = orderRepository.save(order);
@@ -132,12 +144,41 @@ public class OrderService {
     // GET ALL
     // ---------------------------------------------------------------------
     @Transactional(readOnly = true)
-    public List<OrderResponse> getAllOrders() {
+    public Page<OrderResponse> getAllOrders(
+            PageRequestDto dto,
+            String status,
+            String email,
+            List<String> sort
+    ) {
+        Pageable pageable = PageRequest.of(
+                dto.pageOrDefault(),
+                dto.sizeOrDefault(),
+                parseSort(sort)
+        );
 
-        return orderRepository.findAll()
-                .stream()
-                .map(mapper::toResponse)
-                .toList();
+        Page<Order> page;
+
+        if (status != null && email != null) {
+            page = orderRepository.findByStatusAndUserDetailsEmail(
+                    OrderStatus.valueOf(status),
+                    email,
+                    pageable
+            );
+        } else if (status != null) {
+            page = orderRepository.findByStatus(
+                    OrderStatus.valueOf(status),
+                    pageable
+            );
+        } else if (email != null) {
+            page = orderRepository.findByUserDetailsEmail(
+                    email,
+                    pageable
+            );
+        } else {
+            page = orderRepository.findAll(pageable);
+        }
+
+        return page.map(mapper::toResponse);
     }
 
     // ---------------------------------------------------------------------
@@ -153,4 +194,52 @@ public class OrderService {
 
         log.info("Order deleted: {}", orderNumber);
     }
+
+    // -------------------------------
+    // UTIL
+    // --------------------------------
+    private Sort parseSort(List<String> sortParams) {
+        if (sortParams == null || sortParams.isEmpty()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        List<Sort.Order> orders = new ArrayList<>();
+
+        for (String param : sortParams) {
+            if (param == null || param.isBlank()) {
+                continue;
+            }
+
+            String[] parts = param.split(",");
+
+            String field = parts[0].trim();
+
+            if (!SORT_WHITELIST.contains(field)) {
+                throw new BadRequestException(
+                        "Sorting by field '" + field + "' is not allowed"
+                );
+            }
+
+            Sort.Direction direction = Sort.Direction.ASC;
+
+            if (parts.length > 1) {
+                try {
+                    direction = Sort.Direction.fromString(parts[1].trim());
+                } catch (IllegalArgumentException ex) {
+                    throw new BadRequestException(
+                            "Invalid sort direction '" + parts[1] + "'. Allowed values: ASC, DESC"
+                    );
+                }
+            }
+
+            orders.add(new Sort.Order(direction, field));
+        }
+
+        if (orders.isEmpty()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        return Sort.by(orders);
+    }
+
 }

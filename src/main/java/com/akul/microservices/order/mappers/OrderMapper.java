@@ -2,6 +2,7 @@ package com.akul.microservices.order.mappers;
 
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
+import com.akul.microservices.order.exception.BadRequestException;
 import com.akul.microservices.order.model.Order;
 import com.akul.microservices.order.model.OrderItem;
 import com.akul.microservices.order.model.OrderStatus;
@@ -24,14 +25,16 @@ public interface OrderMapper {
 
     UserDetails toEntity(OrderRequest.UserDetails dto);
 
-
-    @Mapping(source = "status", target = "status")
+    @Mapping(source = "items", target = "items")
     OrderResponse toResponse(Order order);
 
+    @IterableMapping(elementTargetType = OrderResponse.OrderItemResponse.class)
+    List<OrderResponse.OrderItemResponse> toResponse(List<OrderItem> items);
+
+    @Mapping(source = "productName", target = "name")
     OrderResponse.OrderItemResponse toResponse(OrderItem item);
 
     OrderResponse.UserDetails toResponse(UserDetails userDetails);
-
 
     default void updateItems(@MappingTarget Order order,
                              List<OrderRequest.OrderItemRequest> items) {
@@ -47,6 +50,11 @@ public interface OrderMapper {
     }
 
     default void updateStatus(@MappingTarget Order order, String status) {
-        order.setStatus(OrderStatus.valueOf(status));
+        try {
+            OrderStatus newStatus = OrderStatus.valueOf(status.toUpperCase());
+            order.setStatus(newStatus);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid order status: " + status);
+        }
     }
 }

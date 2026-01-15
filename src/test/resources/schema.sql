@@ -14,6 +14,7 @@ CREATE TABLE t_order_items (
                                id BIGINT AUTO_INCREMENT PRIMARY KEY,
                                order_id BIGINT NOT NULL,
                                sku VARCHAR(255) NOT NULL,
+                               product_name VARCHAR(255)   NOT NULL,
                                price DECIMAL(19,2) NOT NULL,
                                quantity INT NOT NULL,
                                CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES t_orders(id) ON DELETE CASCADE

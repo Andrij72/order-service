@@ -24,6 +24,8 @@ public record OrderRequest(
     public record OrderItemRequest(
             @NotBlank
             String sku,
+            @NotBlank
+            String productName,
             @NotNull
             BigDecimal price,
             @Min(1)

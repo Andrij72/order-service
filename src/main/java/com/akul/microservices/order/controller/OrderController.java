@@ -2,13 +2,25 @@ package com.akul.microservices.order.controller;
 
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
+import com.akul.microservices.order.dto.PageRequestDto;
 import com.akul.microservices.order.dto.UpdateOrderStatusRequest;
 import com.akul.microservices.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -54,10 +66,14 @@ public class OrderController {
     // GET ALL
     // ---------------------------------------------------------------------
     @GetMapping
-    public ResponseEntity<List<OrderResponse>> getAllOrders() {
-
+    public ResponseEntity<Page<OrderResponse>> getAllOrders(
+            @Valid PageRequestDto page,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) List<String> sort
+    ) {
         return ResponseEntity.ok(
-                orderService.getAllOrders()
+                orderService.getAllOrders(page, status, email, sort)
         );
     }
 
@@ -98,5 +114,16 @@ public class OrderController {
 
         orderService.deleteOrder(orderNumber);
         return ResponseEntity.noContent().build();
+    }
+
+    // ---------------------------------------------------------------------
+    // UTIL
+    // ---------------------------------------------------------------------
+    private Sort.Order parseSort(String sort) {
+        String[] parts = sort.split(",");
+        return new Sort.Order(
+                Sort.Direction.fromString(parts[1]),
+                parts[0]
+        );
     }
 }

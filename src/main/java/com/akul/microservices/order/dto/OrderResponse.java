@@ -26,6 +26,7 @@ public record OrderResponse(
 
     public record OrderItemResponse(
             String sku,
+            String name,
             BigDecimal price,
             Integer quantity
     ) {}

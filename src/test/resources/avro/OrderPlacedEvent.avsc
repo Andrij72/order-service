@@ -22,6 +22,7 @@
           "name": "OrderItem",
           "fields": [
             { "name": "sku", "type": "string" },
+            { "name": "productName", "type": "string", "default": "" },
             { "name": "price", "type": "double" },
             { "name": "quantity", "type": "int" }
           ]

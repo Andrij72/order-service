@@ -107,8 +107,8 @@ class OrderServiceIntegrationTest {
             "lastName": "K"
           },
           "items": [
-            {"sku": "Samsung-90", "price": 1200.00, "quantity": 2},
-            {"sku": "iPhone-15", "price": 1500.00, "quantity": 1}
+            {"sku": "Samsung-90", "product_name": "Samsung 90", "price": 1200.00, "quantity": 2},
+            {"sku": "iPhone-15", "product_name": "iPhone 15", "price": 1500.00, "quantity": 1}
           ],
           "status":"PENDING"
         }
@@ -141,7 +141,7 @@ class OrderServiceIntegrationTest {
             List<Order> orders = orderRepository.findAll();
             assertThat(orders).hasSize(1);
 
-            Order savedOrder = orders.get(0);
+            Order savedOrder = orders.getFirst();
             assertThat(savedOrder.getItems()).hasSize(2);
             assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
             return null;
@@ -157,12 +157,14 @@ class OrderServiceIntegrationTest {
 
         OrderItem orderItem1 = OrderItem.builder()
                 .sku("Samsung-90")
+                .productName("Samsung 90")
                 .price(BigDecimal.valueOf(1500))
                 .quantity(2)
                 .build();
 
         OrderItem orderItem2 = OrderItem.builder()
-        .sku("iPhone-15")
+                .sku("iPhone-15")
+                .productName("iPhone 15")
                 .price(BigDecimal.valueOf(1200))
                 .quantity(1)
                 .build();
@@ -176,13 +178,11 @@ class OrderServiceIntegrationTest {
                         "K"
                 ))
 
-
                 .build();
 
         order.setItems(Arrays.asList(orderItem1, orderItem2));
         orderItem1.setOrder(order);
         orderItem2.setOrder(order);
-
 
 
         orderRepository.save(order);

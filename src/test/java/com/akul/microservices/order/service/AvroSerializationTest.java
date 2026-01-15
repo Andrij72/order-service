@@ -36,6 +36,7 @@ public class AvroSerializationTest {
                               "    {\"name\": \"status\", \"type\": \"string\"},\n" +
                               "    {\"name\": \"items\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"record\", \"name\": \"OrderItem\", \"fields\": [\n" +
                               "      {\"name\": \"sku\", \"type\": \"string\"},\n" +
+                              "      {\"name\": \"productName\", \"type\": \"string\"},\n" +
                               "      {\"name\": \"price\", \"type\": \"double\"},\n" +
                               "      {\"name\": \"quantity\", \"type\": \"int\"}\n" +
                               "    ]}}}\n" +
@@ -49,11 +50,13 @@ public class AvroSerializationTest {
         Schema orderItemSchema = schema.getField("items").schema().getElementType();
         GenericRecord item1 = new GenericData.Record(orderItemSchema);
         item1.put("sku", "iphone_15");
+        item1.put("productName", "iphone 15");
         item1.put("price", 1350.0);
         item1.put("quantity", 2);
 
         GenericRecord item2 = new GenericData.Record(orderItemSchema);
         item2.put("sku", "airpods_pro");
+        item2.put("productName", "airpods pro");
         item2.put("price", 250.0);
         item2.put("quantity", 1);
 

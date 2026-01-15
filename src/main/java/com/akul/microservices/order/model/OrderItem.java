@@ -26,7 +26,7 @@ import java.math.BigDecimal;
  */
 @Entity
 @Table(name = "t_order_items",
-        uniqueConstraints = {@UniqueConstraint(columnNames = {"order_id", "sku_code"})})
+        uniqueConstraints = {@UniqueConstraint(columnNames = {"order_id", "sku"})})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -39,6 +39,7 @@ public class OrderItem {
     private Long id;
 
     private String sku;
+    private String productName;
     private BigDecimal price;
     private Integer quantity;
 
