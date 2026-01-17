@@ -4,7 +4,6 @@ import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.dto.PageRequestDto;
-import com.akul.microservices.order.dto.PageResponseDto;
 import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.exception.BadRequestException;
 import com.akul.microservices.order.exception.NotAcceptableItemException;
