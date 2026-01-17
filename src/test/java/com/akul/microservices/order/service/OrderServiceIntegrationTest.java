@@ -99,20 +99,20 @@ class OrderServiceIntegrationTest {
     @Test
     void shouldSubmitOrder_withMultipleItems() {
         String orderJson = """
-        {
-          "orderNumber": "6ccc23bd-4661-4a75-8989-d4d56e8d9a57",
-          "userDetails": {
-            "email": "andrii@example.com",
-            "firstName": "Andrii",
-            "lastName": "K"
-          },
-          "items": [
-            {"sku": "Samsung-90", "product_name": "Samsung 90", "price": 1200.00, "quantity": 2},
-            {"sku": "iPhone-15", "product_name": "iPhone 15", "price": 1500.00, "quantity": 1}
-          ],
-          "status":"PENDING"
-        }
-        """;
+                {
+                  "orderNumber": "6ccc23bd-4661-4a75-8989-d4d56e8d9a57",
+                  "userDetails": {
+                    "email": "andrii@example.com",
+                    "firstName": "Andrii",
+                    "lastName": "K"
+                  },
+                  "items": [
+                    {"sku": "Samsung-90", "product_name": "Samsung 90", "price": 1200.00, "quantity": 2},
+                    {"sku": "iPhone-15", "product_name": "iPhone 15", "price": 1500.00, "quantity": 1}
+                  ],
+                  "status":"PENDING"
+                }
+                """;
 
         given()
                 .contentType("application/json")
@@ -196,6 +196,102 @@ class OrderServiceIntegrationTest {
                 .body("items", Matchers.hasSize(2))
                 .body("userDetails.firstName", Matchers.is("Andrii"));
     }
+
+    // ---------------------------------------------------------------------
+    // GET ALL ORDERS
+    // ---------------------------------------------------------------------
+    @Test
+    void shouldRetrieveAllOrdersWithPaginationAndSorting() {
+        OrderItem item1 = OrderItem.builder()
+                .sku("Samsung-90")
+                .productName("Samsung 90")
+                .price(BigDecimal.valueOf(1500))
+                .quantity(2)
+                .build();
+
+        OrderItem item2 = OrderItem.builder()
+                .sku("iPhone-15")
+                .productName("iPhone 15")
+                .price(BigDecimal.valueOf(1200))
+                .quantity(1)
+                .build();
+
+        Order order1 = Order.builder()
+                .orderNumber(UUID.randomUUID().toString())
+                .status(OrderStatus.PENDING)
+                .userDetails(new UserDetails("andrii@example.com", "Andrii", "K"))
+                .build();
+        order1.setItems(List.of(item1));
+        item1.setOrder(order1);
+
+        Order order2 = Order.builder()
+                .orderNumber(UUID.randomUUID().toString())
+                .status(OrderStatus.PENDING)
+                .userDetails(new UserDetails("test@example.com", "Test", "T"))
+                .build();
+        order2.setItems(List.of(item2));
+        item2.setOrder(order2);
+
+        orderRepository.saveAll(List.of(order1, order2));
+
+        // -------------------------------
+        // Act & Assert: without parameters
+        // -------------------------------
+        given()
+                .queryParam("page", 0)
+                .queryParam("size", 10)
+                .when()
+                .get("/api/v1/orders")
+                .then()
+                .statusCode(200)
+                .body("content", Matchers.hasSize(2))
+                .body("totalElements", Matchers.is(2))
+                .body("content[0].orderNumber", Matchers.notNullValue())
+                .body("content[0].items", Matchers.notNullValue());
+
+        // -------------------------------
+        // Act & Assert: filter by status
+        // -------------------------------
+        given()
+                .queryParam("status", "PENDING")
+                .queryParam("page", 0)
+                .queryParam("size", 10)
+                .when()
+                .get("/api/v1/orders")
+                .then()
+                .statusCode(200)
+                .body("content", Matchers.hasSize(2))
+                .body("content[0].status", Matchers.is("PENDING"));
+
+        // -------------------------------
+        // Act & Assert: filter by email
+        // -------------------------------
+        given()
+                .queryParam("email", "test@example.com")
+                .queryParam("page", 0)
+                .queryParam("size", 10)
+                .when()
+                .get("/api/v1/orders")
+                .then()
+                .statusCode(200)
+                .body("content", Matchers.hasSize(1))
+                .body("content[0].userDetails.email", Matchers.is("test@example.com"));
+
+        // -------------------------------
+        // Act & Assert: multi-sort (createdAt desc, status asc)
+        // -------------------------------
+        given()
+                .queryParam("sort", "createdAt,desc")
+                .queryParam("sort", "status,asc")
+                .queryParam("page", 0)
+                .queryParam("size", 10)
+                .when()
+                .get("/api/v1/orders")
+                .then()
+                .statusCode(200)
+                .body("content", Matchers.hasSize(2));
+    }
+
     // ---------------------------------------------------------------------
     // NOT FOUND
     // ---------------------------------------------------------------------

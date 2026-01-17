@@ -4,6 +4,7 @@ import com.akul.microservices.order.client.InventoryRestClient;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.dto.PageRequestDto;
+import com.akul.microservices.order.dto.PageResponseDto;
 import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.exception.BadRequestException;
 import com.akul.microservices.order.exception.NotAcceptableItemException;
@@ -147,13 +148,12 @@ public class OrderService {
     public Page<OrderResponse> getAllOrders(
             PageRequestDto dto,
             String status,
-            String email,
-            List<String> sort
+            String email
     ) {
         Pageable pageable = PageRequest.of(
                 dto.pageOrDefault(),
                 dto.sizeOrDefault(),
-                parseSort(sort)
+                parseSort(dto.sort()) // беремо sort з DTO
         );
 
         Page<Order> page;
@@ -180,6 +180,7 @@ public class OrderService {
 
         return page.map(mapper::toResponse);
     }
+
 
     // ---------------------------------------------------------------------
     // DELETE

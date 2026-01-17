@@ -3,6 +3,7 @@ package com.akul.microservices.order.controller;
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
 import com.akul.microservices.order.dto.PageRequestDto;
+import com.akul.microservices.order.dto.PageResponseDto;
 import com.akul.microservices.order.dto.UpdateOrderStatusRequest;
 import com.akul.microservices.order.service.OrderService;
 import jakarta.validation.Valid;
@@ -66,15 +67,16 @@ public class OrderController {
     // GET ALL
     // ---------------------------------------------------------------------
     @GetMapping
-    public ResponseEntity<Page<OrderResponse>> getAllOrders(
-            @Valid PageRequestDto page,
+    public ResponseEntity<PageResponseDto<OrderResponse>> getAllOrders(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) List<String> sort,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) List<String> sort
+            @RequestParam(required = false) String email
     ) {
-        return ResponseEntity.ok(
-                orderService.getAllOrders(page, status, email, sort)
-        );
+        PageRequestDto pageRequest = PageRequestDto.of(page, size, sort);
+        Page<OrderResponse> result = orderService.getAllOrders(pageRequest, status, email);
+        return ResponseEntity.ok(PageResponseDto.from(result));
     }
 
     // ---------------------------------------------------------------------

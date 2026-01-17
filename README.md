@@ -33,13 +33,13 @@ It communicates with other services and infrastructure as follows:
 
 ## 📂 Project Structure
 
-    order-service/
-    ├── .github/workflows       # CI/CD workflows
-    ├── docker                  # Docker-related files
+        order-service/
+    ├── .github/workflows       # CI/CD
+    ├── docker                  # Docker файли
     │   └── mysql
     │       ├── data
     │       └── init.sql
-    ├── docker-compose-examples # Docker Compose examples
+    ├── docker-compose-examples # Docker Compose приклади
     ├── src
     │   ├── main
     │   │   ├── java/com/akul/microservices/order
@@ -65,6 +65,7 @@ It communicates with other services and infrastructure as follows:
     │       └── resources/avro
     ├── pom.xml
     └── Dockerfile
+
 
 ---
 
