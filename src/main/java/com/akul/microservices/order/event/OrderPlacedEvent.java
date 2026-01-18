@@ -5,19 +5,18 @@
  */
 package com.akul.microservices.order.event;
 
-import org.apache.avro.generic.GenericArray;
+import org.apache.avro.message.BinaryMessageDecoder;
+import org.apache.avro.message.BinaryMessageEncoder;
+import org.apache.avro.message.SchemaStore;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.util.Utf8;
-import org.apache.avro.message.BinaryMessageEncoder;
-import org.apache.avro.message.BinaryMessageDecoder;
-import org.apache.avro.message.SchemaStore;
 
 @org.apache.avro.specific.AvroGenerated
 public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = -2619098675122450507L;
+  private static final long serialVersionUID = -3719258981895977807L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"OrderPlacedEvent\",\"namespace\":\"com.akul.microservices.order.event\",\"fields\":[{\"name\":\"orderNbr\",\"type\":\"string\"},{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"OrderPlacedEvent\",\"namespace\":\"com.akul.microservices.order.event\",\"fields\":[{\"name\":\"orderNbr\",\"type\":\"string\"},{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"},{\"name\":\"status\",\"type\":\"string\",\"default\":\"PENDING\"},{\"name\":\"items\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"OrderItem\",\"fields\":[{\"name\":\"sku\",\"type\":\"string\"},{\"name\":\"price\",\"type\":\"double\"},{\"name\":\"quantity\",\"type\":\"int\"},{\"name\":\"productName\",\"type\":\"string\",\"default\":\"\"}]}},\"default\":[]}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -77,6 +76,8 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
   private java.lang.CharSequence email;
   private java.lang.CharSequence firstName;
   private java.lang.CharSequence lastName;
+  private java.lang.CharSequence status;
+  private java.util.List<com.akul.microservices.order.event.OrderItem> items;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -91,12 +92,16 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
    * @param email The new value for email
    * @param firstName The new value for firstName
    * @param lastName The new value for lastName
+   * @param status The new value for status
+   * @param items The new value for items
    */
-  public OrderPlacedEvent(java.lang.CharSequence orderNbr, java.lang.CharSequence email, java.lang.CharSequence firstName, java.lang.CharSequence lastName) {
+  public OrderPlacedEvent(java.lang.CharSequence orderNbr, java.lang.CharSequence email, java.lang.CharSequence firstName, java.lang.CharSequence lastName, java.lang.CharSequence status, java.util.List<com.akul.microservices.order.event.OrderItem> items) {
     this.orderNbr = orderNbr;
     this.email = email;
     this.firstName = firstName;
     this.lastName = lastName;
+    this.status = status;
+    this.items = items;
   }
 
   @Override
@@ -113,6 +118,8 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
     case 1: return email;
     case 2: return firstName;
     case 3: return lastName;
+    case 4: return status;
+    case 5: return items;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -126,6 +133,8 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
     case 1: email = (java.lang.CharSequence)value$; break;
     case 2: firstName = (java.lang.CharSequence)value$; break;
     case 3: lastName = (java.lang.CharSequence)value$; break;
+    case 4: status = (java.lang.CharSequence)value$; break;
+    case 5: items = (java.util.List<com.akul.microservices.order.event.OrderItem>)value$; break;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -199,6 +208,40 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
   }
 
   /**
+   * Gets the value of the 'status' field.
+   * @return The value of the 'status' field.
+   */
+  public java.lang.CharSequence getStatus() {
+    return status;
+  }
+
+
+  /**
+   * Sets the value of the 'status' field.
+   * @param value the value to set.
+   */
+  public void setStatus(java.lang.CharSequence value) {
+    this.status = value;
+  }
+
+  /**
+   * Gets the value of the 'items' field.
+   * @return The value of the 'items' field.
+   */
+  public java.util.List<com.akul.microservices.order.event.OrderItem> getItems() {
+    return items;
+  }
+
+
+  /**
+   * Sets the value of the 'items' field.
+   * @param value the value to set.
+   */
+  public void setItems(java.util.List<com.akul.microservices.order.event.OrderItem> value) {
+    this.items = value;
+  }
+
+  /**
    * Creates a new OrderPlacedEvent RecordBuilder.
    * @return A new OrderPlacedEvent RecordBuilder
    */
@@ -243,6 +286,8 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
     private java.lang.CharSequence email;
     private java.lang.CharSequence firstName;
     private java.lang.CharSequence lastName;
+    private java.lang.CharSequence status;
+    private java.util.List<com.akul.microservices.order.event.OrderItem> items;
 
     /** Creates a new Builder */
     private Builder() {
@@ -271,6 +316,14 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
         this.lastName = data().deepCopy(fields()[3].schema(), other.lastName);
         fieldSetFlags()[3] = other.fieldSetFlags()[3];
       }
+      if (isValidValue(fields()[4], other.status)) {
+        this.status = data().deepCopy(fields()[4].schema(), other.status);
+        fieldSetFlags()[4] = other.fieldSetFlags()[4];
+      }
+      if (isValidValue(fields()[5], other.items)) {
+        this.items = data().deepCopy(fields()[5].schema(), other.items);
+        fieldSetFlags()[5] = other.fieldSetFlags()[5];
+      }
     }
 
     /**
@@ -294,6 +347,14 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
       if (isValidValue(fields()[3], other.lastName)) {
         this.lastName = data().deepCopy(fields()[3].schema(), other.lastName);
         fieldSetFlags()[3] = true;
+      }
+      if (isValidValue(fields()[4], other.status)) {
+        this.status = data().deepCopy(fields()[4].schema(), other.status);
+        fieldSetFlags()[4] = true;
+      }
+      if (isValidValue(fields()[5], other.items)) {
+        this.items = data().deepCopy(fields()[5].schema(), other.items);
+        fieldSetFlags()[5] = true;
       }
     }
 
@@ -457,6 +518,86 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
       return this;
     }
 
+    /**
+      * Gets the value of the 'status' field.
+      * @return The value.
+      */
+    public java.lang.CharSequence getStatus() {
+      return status;
+    }
+
+
+    /**
+      * Sets the value of the 'status' field.
+      * @param value The value of 'status'.
+      * @return This builder.
+      */
+    public com.akul.microservices.order.event.OrderPlacedEvent.Builder setStatus(java.lang.CharSequence value) {
+      validate(fields()[4], value);
+      this.status = value;
+      fieldSetFlags()[4] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'status' field has been set.
+      * @return True if the 'status' field has been set, false otherwise.
+      */
+    public boolean hasStatus() {
+      return fieldSetFlags()[4];
+    }
+
+
+    /**
+      * Clears the value of the 'status' field.
+      * @return This builder.
+      */
+    public com.akul.microservices.order.event.OrderPlacedEvent.Builder clearStatus() {
+      status = null;
+      fieldSetFlags()[4] = false;
+      return this;
+    }
+
+    /**
+      * Gets the value of the 'items' field.
+      * @return The value.
+      */
+    public java.util.List<com.akul.microservices.order.event.OrderItem> getItems() {
+      return items;
+    }
+
+
+    /**
+      * Sets the value of the 'items' field.
+      * @param value The value of 'items'.
+      * @return This builder.
+      */
+    public com.akul.microservices.order.event.OrderPlacedEvent.Builder setItems(java.util.List<com.akul.microservices.order.event.OrderItem> value) {
+      validate(fields()[5], value);
+      this.items = value;
+      fieldSetFlags()[5] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'items' field has been set.
+      * @return True if the 'items' field has been set, false otherwise.
+      */
+    public boolean hasItems() {
+      return fieldSetFlags()[5];
+    }
+
+
+    /**
+      * Clears the value of the 'items' field.
+      * @return This builder.
+      */
+    public com.akul.microservices.order.event.OrderPlacedEvent.Builder clearItems() {
+      items = null;
+      fieldSetFlags()[5] = false;
+      return this;
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public OrderPlacedEvent build() {
@@ -466,6 +607,8 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
         record.email = fieldSetFlags()[1] ? this.email : (java.lang.CharSequence) defaultValue(fields()[1]);
         record.firstName = fieldSetFlags()[2] ? this.firstName : (java.lang.CharSequence) defaultValue(fields()[2]);
         record.lastName = fieldSetFlags()[3] ? this.lastName : (java.lang.CharSequence) defaultValue(fields()[3]);
+        record.status = fieldSetFlags()[4] ? this.status : (java.lang.CharSequence) defaultValue(fields()[4]);
+        record.items = fieldSetFlags()[5] ? this.items : (java.util.List<com.akul.microservices.order.event.OrderItem>) defaultValue(fields()[5]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;
@@ -506,6 +649,21 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
 
     out.writeString(this.lastName);
 
+    out.writeString(this.status);
+
+    long size0 = this.items.size();
+    out.writeArrayStart();
+    out.setItemCount(size0);
+    long actualSize0 = 0;
+    for (com.akul.microservices.order.event.OrderItem e0: this.items) {
+      actualSize0++;
+      out.startItem();
+      e0.customEncode(out);
+    }
+    out.writeArrayEnd();
+    if (actualSize0 != size0)
+      throw new java.util.ConcurrentModificationException("Array-size written was " + size0 + ", but element count was " + actualSize0 + ".");
+
   }
 
   @Override public void customDecode(org.apache.avro.io.ResolvingDecoder in)
@@ -521,8 +679,28 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
 
       this.lastName = in.readString(this.lastName instanceof Utf8 ? (Utf8)this.lastName : null);
 
+      this.status = in.readString(this.status instanceof Utf8 ? (Utf8)this.status : null);
+
+      long size0 = in.readArrayStart();
+      java.util.List<com.akul.microservices.order.event.OrderItem> a0 = this.items;
+      if (a0 == null) {
+        a0 = new SpecificData.Array<com.akul.microservices.order.event.OrderItem>((int)size0, SCHEMA$.getField("items").schema());
+        this.items = a0;
+      } else a0.clear();
+      SpecificData.Array<com.akul.microservices.order.event.OrderItem> ga0 = (a0 instanceof SpecificData.Array ? (SpecificData.Array<com.akul.microservices.order.event.OrderItem>)a0 : null);
+      for ( ; 0 < size0; size0 = in.arrayNext()) {
+        for ( ; size0 != 0; size0--) {
+          com.akul.microservices.order.event.OrderItem e0 = (ga0 != null ? ga0.peek() : null);
+          if (e0 == null) {
+            e0 = new com.akul.microservices.order.event.OrderItem();
+          }
+          e0.customDecode(in);
+          a0.add(e0);
+        }
+      }
+
     } else {
-      for (int i = 0; i < 4; i++) {
+      for (int i = 0; i < 6; i++) {
         switch (fieldOrder[i].pos()) {
         case 0:
           this.orderNbr = in.readString(this.orderNbr instanceof Utf8 ? (Utf8)this.orderNbr : null);
@@ -538,6 +716,30 @@ public class OrderPlacedEvent extends org.apache.avro.specific.SpecificRecordBas
 
         case 3:
           this.lastName = in.readString(this.lastName instanceof Utf8 ? (Utf8)this.lastName : null);
+          break;
+
+        case 4:
+          this.status = in.readString(this.status instanceof Utf8 ? (Utf8)this.status : null);
+          break;
+
+        case 5:
+          long size0 = in.readArrayStart();
+          java.util.List<com.akul.microservices.order.event.OrderItem> a0 = this.items;
+          if (a0 == null) {
+            a0 = new SpecificData.Array<com.akul.microservices.order.event.OrderItem>((int)size0, SCHEMA$.getField("items").schema());
+            this.items = a0;
+          } else a0.clear();
+          SpecificData.Array<com.akul.microservices.order.event.OrderItem> ga0 = (a0 instanceof SpecificData.Array ? (SpecificData.Array<com.akul.microservices.order.event.OrderItem>)a0 : null);
+          for ( ; 0 < size0; size0 = in.arrayNext()) {
+            for ( ; size0 != 0; size0--) {
+              com.akul.microservices.order.event.OrderItem e0 = (ga0 != null ? ga0.peek() : null);
+              if (e0 == null) {
+                e0 = new com.akul.microservices.order.event.OrderItem();
+              }
+              e0.customDecode(in);
+              a0.add(e0);
+            }
+          }
           break;
 
         default:

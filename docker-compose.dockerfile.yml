@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   order-service:
@@ -15,10 +13,6 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASS: ${MYSQL_PASS}
-    depends_on:
-      - mysql
-      - broker
-      - schema-registry
     networks:
       - microservices-net
 

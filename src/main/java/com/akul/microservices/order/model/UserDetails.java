@@ -3,8 +3,9 @@ package com.akul.microservices.order.model;
 import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * UserDetails.java.
@@ -14,7 +15,8 @@ import lombok.NoArgsConstructor;
  * @since 9/26/2025
  */
 @Embeddable
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
