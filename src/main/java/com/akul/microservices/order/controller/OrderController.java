@@ -1,10 +1,10 @@
 package com.akul.microservices.order.controller;
 
-import com.akul.microservices.order.dto.OrderRequest;
-import com.akul.microservices.order.dto.OrderResponse;
-import com.akul.microservices.order.dto.PageRequestDto;
-import com.akul.microservices.order.dto.PageResponseDto;
-import com.akul.microservices.order.dto.UpdateOrderStatusRequest;
+import com.akul.microservices.order.application.dto.OrderRequest;
+import com.akul.microservices.order.application.dto.OrderResponse;
+import com.akul.microservices.order.application.dto.PageRequestDto;
+import com.akul.microservices.order.application.dto.PageResponseDto;
+import com.akul.microservices.order.application.dto.UpdateOrderStatusRequest;
 import com.akul.microservices.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

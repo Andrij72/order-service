@@ -1,19 +1,21 @@
 package com.akul.microservices.order.service;
 
-import com.akul.microservices.order.client.InventoryRestClient;
-import com.akul.microservices.order.dto.OrderRequest;
-import com.akul.microservices.order.dto.OrderResponse;
-import com.akul.microservices.order.dto.PageRequestDto;
+import com.akul.microservices.order.application.dto.OrderRequest;
+import com.akul.microservices.order.application.dto.OrderResponse;
+import com.akul.microservices.order.application.dto.PageRequestDto;
+import com.akul.microservices.order.domain.model.Order;
 import com.akul.microservices.order.event.OrderPlacedEvent;
-import com.akul.microservices.order.exception.BadRequestException;
-import com.akul.microservices.order.exception.NotAcceptableItemException;
-import com.akul.microservices.order.exception.OrderNotFoundException;
-import com.akul.microservices.order.exception.ProductOutOfStockException;
-import com.akul.microservices.order.mappers.OrderEventMapper;
-import com.akul.microservices.order.mappers.OrderMapper;
-import com.akul.microservices.order.model.Order;
-import com.akul.microservices.order.model.OrderStatus;
-import com.akul.microservices.order.repository.OrderRepository;
+import com.akul.microservices.order.domain.exception.BadRequestException;
+import com.akul.microservices.order.domain.exception.NotAcceptableItemException;
+import com.akul.microservices.order.domain.exception.OrderNotFoundException;
+import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
+import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
+import com.akul.microservices.order.application.mappers.OrderEventMapper;
+import com.akul.microservices.order.application.mappers.OrderMapper;
+import com.akul.microservices.order.domain.model.OrderStatus;
+import com.akul.microservices.order.infrastructure.persistance.OrderRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,8 +52,9 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderMapper mapper;
-    private final InventoryRestClient inventoryClient;
+    private final OrderOutboxRepository outboxRepository;
     private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     // ---------------------------------------------------------------------
     // CREATE
@@ -62,28 +66,37 @@ public class OrderService {
             throw new NotAcceptableItemException();
         }
 
-        request.items().forEach(item -> {
-            boolean inStock =
-                    inventoryClient.isProductInStock(item.sku(), item.quantity());
-            if (!inStock) {
-                throw new ProductOutOfStockException(item.sku());
-            }
-        });
-
-        Order order = mapper.toEntity(request);
+        Order order = Order.create(
+                UUID.randomUUID().toString(),
+                mapper.toEntity(request.userDetails())
+        );
 
         mapper.updateItems(order, request.items());
-
-        order.setOrderNumber(UUID.randomUUID().toString());
-        order.getItems().forEach(i -> i.setOrder(order));
-
         Order saved = orderRepository.save(order);
 
-        OrderPlacedEvent event = OrderEventMapper.map(saved);
-        kafkaTemplate.send("order-placed", event);
+        try {
+            String payload = objectMapper.writeValueAsString(
+                    Map.of(
+                            "orderNumber", saved.getOrderNumber(),
+                            "status", "ORDER_PLACED"
+                    )
+            );
+        OrderOutbox outbox = OrderOutbox.create(
+                saved.getOrderNumber(),
+                "ORDER_PLACED",
+        payload);
+        outboxRepository.save(outbox);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
 
+        OrderResponse response = mapper.toResponse(saved);
+
+        log.debug("Saved order = {}", saved);
         log.info("Order placed: {}", saved.getOrderNumber());
-        return mapper.toResponse(saved);
+        log.info("Order response = {}", response);
+
+        return response;
     }
 
     // ---------------------------------------------------------------------
@@ -95,9 +108,10 @@ public class OrderService {
         Order order = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderNotFoundException(orderNumber));
 
-        mapper.updateStatus(order, status);
+        OrderStatus.valueOf(status.toUpperCase());
 
         Order saved = orderRepository.save(order);
+
 
         kafkaTemplate.send(
                 "order-status-updated",
@@ -116,7 +130,7 @@ public class OrderService {
 
         Order existing = orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new OrderNotFoundException(orderNumber));
-        existing.setUserDetails(
+        existing.updateUserDetails(
                 mapper.toEntity(request.userDetails())
         );
 
