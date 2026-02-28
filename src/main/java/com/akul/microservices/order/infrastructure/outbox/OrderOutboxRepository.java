@@ -1,11 +1,10 @@
 package com.akul.microservices.order.infrastructure.outbox;
 
 
-import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,15 +18,14 @@ import java.util.List;
 @Repository
 public interface OrderOutboxRepository extends JpaRepository<OrderOutbox, Long> {
 
-    List<OrderOutbox> findByProcessedFalse();
-
-    List<OrderOutbox> findByProcessedFalseOrderByCreatedAtAsc(Pageable pageable);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-    select o from OrderOutbox o
-    where o.processed = false
-    order by o.createdAt asc
-""")
-    List<OrderOutbox> findBatchForUpdate(Pageable pageable);
+    @Query(value = """
+            SELECT *
+            FROM order_outbox
+            WHERE status = 'PENDING'
+            AND next_retry_at <= NOW()
+            ORDER BY created_at
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<OrderOutbox> findBatchForProcessing(@Param("limit") int limit);
 }

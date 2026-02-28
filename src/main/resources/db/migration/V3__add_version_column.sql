@@ -1,1 +1,0 @@
-ALTER TABLE t_orders ADD COLUMN version BIGINT;

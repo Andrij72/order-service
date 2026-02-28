@@ -2,14 +2,16 @@ package com.akul.microservices.order.infrastructure.outbox;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
+import org.springframework.data.annotation.Version;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 
@@ -22,9 +24,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "order_outbox")
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderOutbox {
 
     @Id
@@ -35,10 +35,11 @@ public class OrderOutbox {
 
     private String eventType;
 
-    @Column(columnDefinition = "json")
+    @Column(columnDefinition = "jsonb")
     private String payload;
 
-    private boolean processed;
+    @Enumerated(EnumType.STRING)
+    private Status status;
 
     private int retryCount;
 
@@ -46,28 +47,82 @@ public class OrderOutbox {
 
     private Instant createdAt;
 
+    private Instant processedAt;
+
+    @Version
+    private Long version;
+
+    public enum Status {
+        PENDING,
+        PROCESSING,
+        PROCESSED,
+        FAILED
+    }
+
     public static OrderOutbox create(
-            String orderNumber,
+            String aggregateId,
             String eventType,
             String payload
     ) {
         OrderOutbox outbox = new OrderOutbox();
-        outbox.aggregateId = orderNumber;
+
+        outbox.aggregateId = aggregateId;
         outbox.eventType = eventType;
         outbox.payload = payload;
-        outbox.processed = false;
+
+        outbox.status = Status.PENDING;
         outbox.retryCount = 0;
         outbox.createdAt = Instant.now();
         outbox.nextRetryAt = Instant.now();
+
         return outbox;
     }
 
-    public void markProcessed() {
-        this.processed = true;
+    private void validatePersisted() {
+        if (id == null) {
+            throw new IllegalStateException("Entity is not persisted");
+        }
     }
 
-    public void incrementRetry() {
+    private void validateMutable() {
+        if (status == Status.PROCESSED ||
+            status == Status.FAILED) {
+
+            throw new IllegalStateException("Terminal state");
+        }
+    }
+
+    public void markProcessing() {
+        validatePersisted();
+        validateMutable();
+        this.status = Status.PROCESSING;
+    }
+
+    public void markProcessed() {
+        validatePersisted();
+        validateMutable();
+
+        this.status = Status.PROCESSED;
+        this.processedAt = Instant.now();
+    }
+
+    public void markFailed() {
+        validatePersisted();
+        validateMutable();
+
+        if (retryCount > 5) {
+            throw new IllegalStateException("Max retry exceeded");
+        }
+
+        this.status = Status.FAILED;
         this.retryCount++;
-        this.nextRetryAt = Instant.now().plusSeconds(30);
+
+        long backoff = Math.min(
+                30L * (1L << retryCount),
+                300
+        );
+
+        this.nextRetryAt =
+                Instant.now().plusSeconds(backoff);
     }
 }

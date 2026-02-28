@@ -33,9 +33,7 @@ public class OrderOutboxPublisher {
     public void publishEvents() {
 
         List<OrderOutbox> events =
-                outboxRepository.findBatchForUpdate(
-                        PageRequest.of(0, BATCH_SIZE)
-                );
+                outboxRepository.findBatchForProcessing(BATCH_SIZE);
 
         for (OrderOutbox event : events) {
 
@@ -47,8 +45,6 @@ public class OrderOutboxPublisher {
                 ).get();
 
                 event.markProcessed();
-
-                outboxRepository.save(event);
 
             } catch (Exception ex) {
                 log.error("Outbox publish failed", ex);
