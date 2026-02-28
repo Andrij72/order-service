@@ -8,7 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import org.springframework.data.annotation.Version;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,7 +33,8 @@ public class OrderOutbox {
 
     private String aggregateId;
 
-    private String eventType;
+    @Enumerated(EnumType.STRING)
+    private OrderEventType eventType;
 
     @Column(columnDefinition = "jsonb")
     private String payload;
@@ -61,7 +62,7 @@ public class OrderOutbox {
 
     public static OrderOutbox create(
             String aggregateId,
-            String eventType,
+            OrderEventType eventType,
             String payload
     ) {
         OrderOutbox outbox = new OrderOutbox();
