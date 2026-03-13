@@ -9,6 +9,6 @@ package com.akul.microservices.order.domain.exception;
  */
 public class OrderNotFoundException extends RuntimeException {
     public OrderNotFoundException(String orderNmr) {
-        super("Order not found" + orderNmr);
+        super("Order " +  orderNmr + " not found!");
     }
 }

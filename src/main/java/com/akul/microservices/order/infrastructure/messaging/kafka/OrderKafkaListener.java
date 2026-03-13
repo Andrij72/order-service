@@ -42,7 +42,7 @@ public class OrderKafkaListener {
         log.info("Order {} moved to WAITING_PAYMENT", orderNumber);
     }
 
-    @KafkaListener(topics = "inventory-rejected", groupId = "order-group")
+    @KafkaListener(topics = "inventory.rejected", groupId = "order-group")
     @Transactional
     public void handleInventoryRejected(String orderNumber) {
 

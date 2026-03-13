@@ -36,8 +36,9 @@ public class OrderOutbox {
     @Enumerated(EnumType.STRING)
     private OrderEventType eventType;
 
-    @Column(columnDefinition = "jsonb")
-    private String payload;
+    @Column(name = "payload", columnDefinition = "MEDIUMBLOB",
+            nullable = false)
+    private byte[] payload;
 
     @Enumerated(EnumType.STRING)
     private Status status;
@@ -63,7 +64,7 @@ public class OrderOutbox {
     public static OrderOutbox create(
             String aggregateId,
             OrderEventType eventType,
-            String payload
+            byte[] payload
     ) {
         OrderOutbox outbox = new OrderOutbox();
 
@@ -102,28 +103,28 @@ public class OrderOutbox {
     public void markProcessed() {
         validatePersisted();
         validateMutable();
-
         this.status = Status.PROCESSED;
         this.processedAt = Instant.now();
     }
 
     public void markFailed() {
+
         validatePersisted();
-        validateMutable();
+
+        retryCount++;
 
         if (retryCount > 5) {
-            throw new IllegalStateException("Max retry exceeded");
+            this.status = Status.FAILED;
+            return;
         }
 
-        this.status = Status.FAILED;
-        this.retryCount++;
+        this.status = Status.PENDING;
 
         long backoff = Math.min(
                 30L * (1L << retryCount),
                 300
         );
 
-        this.nextRetryAt =
-                Instant.now().plusSeconds(backoff);
+        this.nextRetryAt = Instant.now().plusSeconds(backoff);
     }
 }

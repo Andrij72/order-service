@@ -49,7 +49,7 @@ public interface OrderMapper {
                 .map(this::toEntity)
                 .forEach(item -> {
                     item.setOrder(order);
-                    order.getItems().add(item);
+                    order.addItem(item);
                 });
     }
   }

@@ -3,7 +3,7 @@ CREATE TABLE order_outbox (
 
                               aggregate_id VARCHAR(255) NOT NULL,
                               event_type   VARCHAR(100) NOT NULL,
-                              payload      JSON NOT NULL,
+                              payload      MEDIUMBLOB NOT NULL,
 
                               status       VARCHAR(20) NOT NULL DEFAULT 'PENDING',
                               retry_count  INT NOT NULL DEFAULT 0,

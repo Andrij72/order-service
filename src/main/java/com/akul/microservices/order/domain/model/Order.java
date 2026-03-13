@@ -146,8 +146,6 @@ public class Order {
 
         validateTransition(status);
 
-
-
         switch (status) {
 
             case PAID -> markPaid();
@@ -158,6 +156,17 @@ public class Order {
 
             default -> throw new BadRequestException("Unsupported status: " + status);
         }
+    }
+
+    public void cancel() {
+
+        if (status == OrderStatus.PAID ||
+            status == OrderStatus.COMPLETED) {
+
+            throw new IllegalStateException("Cannot cancel paid/completed order");
+        }
+
+        this.status = OrderStatus.CANCELLED;
     }
 
     private void validateTransition(OrderStatus newStatus) {

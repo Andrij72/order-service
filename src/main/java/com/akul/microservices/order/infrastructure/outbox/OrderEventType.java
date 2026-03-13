@@ -6,8 +6,9 @@ package com.akul.microservices.order.infrastructure.outbox;
  * @author Andrii Kulynych
  * @since 2/28/2026
  */
-public enum OrderEventType {
-        ORDER_CREATED,
-        ORDER_CANCELLED,
-        PAYMENT_COMPLETED
+public enum     OrderEventType {
+    ORDER_CREATED,
+    ORDER_FAILED,
+    ORDER_CANCELLED,
+    ORDER_COMPLETED
     }

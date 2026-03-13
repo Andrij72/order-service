@@ -93,29 +93,14 @@ public class OrderController {
         return ResponseEntity.accepted().body(response);
     }
 
-    // ---------------------------------------------------------------------
-    // UPDATE STATUS
-    // ---------------------------------------------------------------------
-    @PatchMapping("/{orderNumber}/status")
-    public ResponseEntity<OrderResponse> updateOrderStatus(
-            @PathVariable String orderNumber,
-            @RequestBody @Valid UpdateOrderStatusRequest request) {
-
-        OrderResponse response =
-                orderService.updateStatus(orderNumber, request.status());
-
-        return ResponseEntity.ok(response);
-    }
-
-    // ---------------------------------------------------------------------
-    // DELETE
-    // ---------------------------------------------------------------------
-    @DeleteMapping("/{orderNumber}")
-    public ResponseEntity<Void> deleteOrder(
+    @PatchMapping("/{orderNumber}/cancel")
+    public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable String orderNumber) {
 
-        orderService.deleteOrder(orderNumber);
-        return ResponseEntity.noContent().build();
+        OrderResponse response =
+                orderService.cancelOrder(orderNumber);
+
+        return ResponseEntity.ok(response);
     }
 
     // ---------------------------------------------------------------------
