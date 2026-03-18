@@ -1,4 +1,4 @@
-package com.akul.microservices.order.infrastructure.persistance;
+package com.akul.microservices.order.infrastructure.persistence;
 
 
 import com.akul.microservices.order.domain.model.Order;

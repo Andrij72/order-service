@@ -1,4 +1,4 @@
-package com.akul.microservices.order.service;
+package com.akul.microservices.order.application.service;
 
 import com.akul.microservices.order.application.dto.OrderRequest;
 import com.akul.microservices.order.application.dto.OrderResponse;
@@ -14,7 +14,7 @@ import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.infrastructure.outbox.OrderEventType;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
-import com.akul.microservices.order.infrastructure.persistance.OrderRepository;
+import com.akul.microservices.order.infrastructure.persistence.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

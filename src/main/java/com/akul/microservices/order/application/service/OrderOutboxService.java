@@ -1,4 +1,4 @@
-package com.akul.microservices.order.service;
+package com.akul.microservices.order.application.service;
 
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
 import lombok.RequiredArgsConstructor;

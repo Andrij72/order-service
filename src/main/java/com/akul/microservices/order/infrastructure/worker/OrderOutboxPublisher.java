@@ -4,7 +4,7 @@ import com.akul.microservices.order.event.OrderPlacedEvent;
 import com.akul.microservices.order.infrastructure.messaging.kafka.OrderTopicResolver;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
-import com.akul.microservices.order.service.OrderOutboxService;
+import com.akul.microservices.order.application.service.OrderOutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
