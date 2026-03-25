@@ -1,5 +1,6 @@
 package com.akul.microservices.order.application.service;
 
+import com.akul.microservices.inventory.event.InventoryEvent;
 import com.akul.microservices.order.application.dto.OrderRequest;
 import com.akul.microservices.order.application.dto.OrderResponse;
 import com.akul.microservices.order.application.dto.PageRequestDto;
@@ -11,11 +12,11 @@ import com.akul.microservices.order.domain.exception.OrderNotFoundException;
 import com.akul.microservices.order.domain.model.Order;
 import com.akul.microservices.order.domain.model.OrderStatus;
 import com.akul.microservices.order.event.OrderPlacedEvent;
+import com.akul.microservices.order.infrastructure.messaging.kafka.OrderTopicResolver;
 import com.akul.microservices.order.infrastructure.outbox.OrderEventType;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
 import com.akul.microservices.order.infrastructure.persistence.OrderRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,10 +27,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import static com.akul.microservices.order.application.mappers.OrderEventMapper.toAvroStatus;
 
 
 /**
@@ -52,8 +57,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderMapper mapper;
     private final OrderOutboxRepository outboxRepository;
-    private final ObjectMapper objectMapper;
-
+    private final OrderTopicResolver orderTopicResolver;
 
     // ---------------------------------------------------------------------
     // CREATE
@@ -236,6 +240,100 @@ public class OrderService {
         }
 
         return Sort.by(orders);
+    }
+
+    @Transactional
+    public void handleInventoryConfirmed(InventoryEvent event) {
+
+        String orderNumber = event.getOrderNbr();
+
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new RuntimeException("ORDER NOT FOUND: " + orderNumber));
+
+        if (!order.getStatus().canTransitionTo(OrderStatus.WAITING_PAYMENT)) {
+            return;
+        }
+
+        order.markWaitingPayment();
+        orderRepository.save(order);
+
+        publishOutboxEvent(order, OrderEventType.PAYMENT_REQUESTED);
+
+        log.info("Order {} moved to WAITING_PAYMENT", orderNumber);
+    }
+
+    private void publishOutboxEvent(Order order, OrderEventType eventType) {
+
+        OrderPlacedEvent event = OrderPlacedEvent.newBuilder()
+                .setOrderNbr(order.getOrderNumber())
+                .setEmail(order.getUserDetails().getEmail())
+                .setFirstName(order.getUserDetails().getFirstName())
+                .setLastName(order.getUserDetails().getLastName())
+                .setStatus(toAvroStatus(order.getStatus()))
+                .setCreatedAt(Instant.now())
+                .build();
+
+        byte[] payload;
+        try {
+            ByteBuffer buffer = event.toByteBuffer();
+            payload = new byte[buffer.remaining()];
+            buffer.get(payload);
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot serialize Avro event", e);
+        }
+
+        OrderOutbox outbox = OrderOutbox.create(order.getOrderNumber(), eventType, payload);
+        outboxRepository.save(outbox);
+
+        log.info("OrderOutbox event saved for order {}", order.getOrderNumber());
+    }
+
+    @Transactional
+    public void handleInventoryRejected(InventoryEvent event) {
+        String orderNumber = event.getOrderNbr();
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow();
+
+        order.markCancelled();
+        orderRepository.save(order);
+
+        publishOutboxEvent(order, OrderEventType.ORDER_FAILED);
+
+        log.info("Order {} cancelled due to inventory rejection", orderNumber);
+    }
+
+    // -----------------------------
+    // HANDLE PAYMENT COMPLETED
+    // -----------------------------
+    @Transactional
+    public void handlePaymentCompleted(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow();
+
+        if (!order.getStatus().canTransitionTo(OrderStatus.PAID)) return;
+
+        order.markPaid();
+        orderRepository.save(order);
+
+        publishOutboxEvent(order, OrderEventType.ORDER_COMPLETED);
+
+        log.info("Order {} marked as PAID", orderNumber);
+    }
+
+    // -----------------------------
+    // HANDLE PAYMENT FAILED
+    // -----------------------------
+    @Transactional
+    public void handlePaymentFailed(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow();
+
+        order.markFailed();
+        orderRepository.save(order);
+
+        publishOutboxEvent(order, OrderEventType.ORDER_FAILED);
+
+        log.info("Order {} marked as FAILED", orderNumber);
     }
 
 }

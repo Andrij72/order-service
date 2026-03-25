@@ -1,303 +1,218 @@
 
 ---
-# 🧾📦 Order Service
+# 🧾📦  Order Service (Saga Version)
 
-**Order Service** is a microservice responsible for managing customer orders in a distributed system.
-It handles order creation, retrieval, update, status changes, and deletion. 
-
-The service supports **pagination**, **sorting**, and filtering by status or user email.
-It is part of **MicroserviceGrid** project and communicates with other services and infrastructure as follows:
-
-* OrderService ↔ NotificationService – asynchronous communication via Apache Kafka (Avro, schema registry)
-
-* OrderService ↔ InventoryService – synchronous communication via REST API using Resilience4j and CircuitBreaker
+Order Service is a microservice responsible for managing orders in an e-commerce system.  
+This is the **updated Saga version**, replacing the legacy CRUD approach.  
+You can find the legacy CRUD version here: [Legacy CRUD Version](https://github.com/Andrij72/order-service/tree/develop_crud)
 
 ---
 
-## 🛠️ Tech Stack
+## 📌 Features
 
-- **Java 21 / Spring Boot 3**
-- **Spring Web**
-- **Spring Data JPA**
-- **MySQL**
-- **Apache Kafka** (event-driven communication with other services)
-- **Resilience4J** (CircuitBreaker / RateLimiter)
-- **Docker / Docker Hub**
-- **Testcontainers** (Integration Tests)
-- **Spring Validation (jakarta.validation)**
+- **Order management**: create, update, cancel, and fetch orders.
+- **Saga orchestration** using Kafka for reliable business processes:
+    - Inventory confirmation
+    - Payment processing
+- **Outbox pattern** for reliable Kafka event publishing.
+- **Validation** via `@Valid` annotations.
+- **Custom exceptions** and global handling (`OrderNotFoundException`, `ProductOutOfStockException`, etc.).
 
 ---
-## 🌈 Order Service Data Flow
 
-        🌐 API Gateway
-        ┌───────────────┐
-        │  REST / Web   │
-        └───────┬───────┘
-                │
-                ▼
-        🟦 Order Service
-        ┌─────────────────────┐
-        │ - REST CRUD         │
-        │ - Kafka Producer    │
-        │ - Inventory REST    │
-        │ - DB: MySQL         │
-        │ - Resilience4j      │
-        └───────┬────────────┘
-                │
-        ┌───────▼────────┐
-        🔹 Inventory Service
-        ┌─────────────────┐
-        │ REST API         │
-        │ Stock Management │
-        └─────────┬───────┘
-                  │
-                  ▼
-        🟪 Notification Service
-        ┌─────────────────┐
-        │ Kafka Consumer   │
-        │ Email / Viber    │
-        └─────────────────┘
+## ⚙️ Technology Stack
 
-### 🔹 Legend
+- Java 21
+- Spring Boot 3
+- Spring Data JPA
+- Kafka (Spring Kafka)
+- MySQL (Flyway migrations)
+- Lombok
+- Avro for event serialization
 
-    🟦 Order Service – this service
-    
-    🔹 Inventory Service – stock availability check (synchronous REST)
-    
-    🟪 Notification Service – asynchronous notifications via Kafka
-    
-    🌐 API Gateway – central entry point (Spring Cloud Gateway / WebFlux)
-    
-### 🔄 Data Flows
-
-* REST → API Gateway → Order Service
-* Synchronous REST → Inventory Service (protected by Resilience4j CircuitBreaker)
-* Kafka Events → Notification Service 
-* Database → persistence of orders and user details (MySQL) 
-* Monitoring / Observability → Prometheus / Grafana / Loki / Tempo
 ---
 
-📂 Project Structure
+## 🛠 Docker
+
+Dockerfile and docker-compose are provided for local development and production deployment.
+
+```bash
+# Build Docker image
+docker build -t order-service:latest .
+
+# Run locally with docker-compose
+docker-compose -f docker-compose.local.yml up
 ```
-    order-service/
-    ├── .github/workflows       # CI/CD
-    ├── docker                  # Docker та MySQL
-    │   └── mysql
-    │       ├── data
-    │       └── init.sql
-    ├── docker-compose-examples # Docker Compose для локальної та продакшн збірки
-    ├── src
-    │   ├── main
-    │   │   ├── java/com/akul/microservices/order
-    │   │   │   ├── client
-    │   │   │   ├── controller
-    │   │   │   ├── dto
-    │   │   │   ├── event
-    │   │   │   ├── exception
-    │   │   │   ├── kafka
-    │   │   │   ├── mappers
-    │   │   │   ├── model
-    │   │   │   ├── repository
-    │   │   │   └── service
-    │   │   └── resources
-    │   │       ├── avro
-    │   │       ├── db/migration
-    │   │       ├── static
-    │   │       └── templates
-    │   └── test
-    │       ├── java/com/akul/microservices/order
-    │       │   ├── service
-    │       │   └── stubs
-    │       └── resources/avro
-    ├── pom.xml
-    └── Dockerfile
-````
+---
+## 📡 Kafka Integration
 
-## 🧩 Endpoints Overview
+The service listens to the following topics:
 
-| Method | Endpoint | Description | Query / Body |
-|--------|---------|-------------|--------------|
-| `POST` | `/api/v1/orders` | Create a new order | Body: `OrderRequest` |
-| `GET` | `/api/v1/orders/{orderNumber}` | Retrieve a single order by number | Path: `orderNumber` |
-| `GET` | `/api/v1/orders` | Retrieve all orders (paginated, sortable, filterable) | Query: `page`, `size`, `sort`, `status`, `email` |
-| `PUT` | `/api/v1/orders/{orderNumber}` | Update a full order | Path: `orderNumber`, Body: `OrderRequest` |
-| `PATCH` | `/api/v1/orders/{orderNumber}/status` | Update order status only | Path: `orderNumber`, Body: `UpdateOrderStatusRequest` |
-| `DELETE` | `/api/v1/orders/{orderNumber}` | Delete an order | Path: `orderNumber` |
+| Topic               | Description         | Listener Method                            |
+|---------------------|---------------------|--------------------------------------------|
+| inventory-confirmed | Inventory confirmed | handleInventoryConfirmed(InventoryEvent)   |
+| inventory-rejected  | Inventory rejected  | handleInventoryRejected(InventoryEvent)    |
+| payment-completed   | Payment completed   | handlePaymentCompleted(String orderNumber) |
+| payment-failed      | Payment failed      | handlePaymentFailed(String orderNumber)    |
+
+Events are published using **Outbox**, processed by a Kafka Worker.
 
 ---
+## 📄 REST API
+Base URL: /api/v1/orders
 
-## 🧰 DTOs
-
-### `OrderRequest`
-
-```json
-{
-  "userDetails": {
-    "email": "andrii@example.com",
-    "firstName": "Andrii",
-    "lastName": "K"
-  },
-  "items": [
-    {"sku": "Samsung-90", "product_name": "Samsung 90", "price": 1200.0, "quantity": 2},
-    {"sku": "iPhone-15", "product_name": "iPhone 15", "price": 1500.0, "quantity": 1}
-  ],
-  "status": "PENDING"
-}
-```
-### `UpdateOrderStatusRequest`
-```json
-{
-  "status": "COMPLETED"
-}
-```
-
-### `PageRequestDto`
-
-| Field  | Type         | Description                                                |
-| ------ | ------------ | ---------------------------------------------------------- |
-| `page` | int          | Page number (default 0)                                    |
-| `size` | int          | Page size (default 10)                                     |
-| `sort` | List<String> | Optional sorting, e.g., `["createdAt,desc", "status,asc"]` |
-
-### `PageResponseDto<T>`
-
-| Field           | Type    | Description                 |
-| --------------- | ------- | --------------------------- |
-| `content`       | List<T> | List of items for this page |
-| `page`          | int     | Current page number         |
-| `size`          | int     | Page size                   |
-| `totalElements` | long    | Total number of items       |
-| `totalPages`    | int     | Total pages                 |
-| `last`          | boolean | Is this the last page?      |
-
----
- ## 🔹Examples
- ### Create Order
-````bash
+### Create Order
+```http
 POST /api/v1/orders
 Content-Type: application/json
 
 {
 "userDetails": {
-"email": "andrii@example.com",
-"firstName": "Andrii",
-"lastName": "K"
+  "email": "user@example.com",
+  "name": "Andrii"
 },
 "items": [
-{"sku": "Samsung-90", "product_name": "Samsung 90", "price": 1200.0, "quantity": 2},
-{"sku": "iPhone-15", "product_name": "iPhone 15", "price": 1500.0, "quantity": 1}
-],
-"status": "PENDING"
-}
-````
- Response:
-```json
-{
-"orderNumber": "123e4567-e89b-12d3-a456-426614174000",
-"userDetails": {
-"email": "andrii@example.com",
-"firstName": "Andrii",
-"lastName": "K"
-},
-"items": [...],
-"status": "PENDING",
-"createdAt": "2026-01-17T16:24:17Z"
+  { "productId": "123", "quantity": 2 }
+]
 }
 ```
+**Response**: 201 Created
 
-### Get All Orders with Pagination, Sorting, Filtering
-```bash
-GET /api/v1/orders?page=0&size=10&sort=createdAt,desc&status=PENDING&email=andrii@example.com
+
+### Get Order
+```http
+GET /api/v1/orders/{orderNumber}
 ```
-Response:
-```json
-{
-  "content": [...],
-  "page": 0,
-  "size": 10,
-  "totalElements": 5,
-  "totalPages": 1,
-  "last": true
-}
-```
----
-▶️ Running Locally
+**Response**: 200 OK
 
-#### Step 1: *Clone the repositories*
-
-
-```bash
-git clone https://github.com/Andrij72/order-service.git
-git clone https://github.com/Andrij72/inventory-service.git
-```
-#### Step 2: *Start local infrastructure*
-
-To run Order Service locally, you need MySQL, Kafka, and Inventory Service. Use the provided *docker-compose* examples:
-
-    docker-compose-examples/
-    ├── docker-compose.local.yml       # Local: MySQL + Kafka
-    ├── docker-compose.override.yml    # Local override: Order Service + MySQL + Kafka
-    ├── docker-compose.dockerfile.yml  # Build local Docker image
-    └── docker-compose.prod.yml        # Production-ready Docker images( Order Service relese + MySQL + Kafka)
-
-
-
-*Option A* — Docker Compose Override (recommended; runs service + Kafka + MySQL in one network):
-```bash
-docker-compose -f docker-compose-examples/docker-compose.override.yml up --build
+### Get All Orders (pagination + filters)
+```http
+GET /api/v1/orders?page=0&size=10&sort=createdAt,desc&status=CREATED&email=user@example.com
 ```
 
-*Option B* — Local Dockerfile (build image locally and run):
-```bash 
-docker-compose.local.yml up --build
-docker-compose -f docker-compose-examples/docker-compose.dockerfile.yml up --build
-````
-
-*Option C* — IntelliJ Run
-```bash 
-docker-compose.local.yml
-``` 
-Open project in IntelliJ
-
-#### Step 3 — *Test the REST API*
-
-Use Postman or curl after services are up:
-
-    GET	/api/v1/orders # Retrieve an order by number
------
-## 📌 Testing Endpoints
-
-You can test the Order Service endpoints using Postman.  
-Import the Postman collection from the project root:
+### Update Full Order
+```http
+PUT /api/v1/orders/{orderNumber}
+Content-Type: application/json
 ```
-.\Microservices order-service.postman_collection.json
+### Cancel Order
+```http
+PATCH /api/v1/orders/{orderNumber}/cancel
 ```
 
 ---
-## 🧪 Integration Tests
 
-Order Service includes integration tests to verify API endpoints and service logic:
+## 🗂 Project Structure
 
-- **OrderServiceIntegrationTest** – tests REST endpoints using Testcontainers for MySQL and WireMock for Inventory Service.
-- **OrderServiceKafkaIntegrationTest** – Kafka integration test is prepared but commented out; it will be completed in upcoming versions.
+```text
+  src/main/java/com/akul/microservices/order
+  ├─ controller   # REST endpoints
+  ├─ application  # DTOs and services
+  ├─ domain       # Models, OrderStatus, Exceptions
+  ├─ event        # Events (PaymentRequestedEvent)
+  ├─ infrastructure
+  │   ├─ messaging/kafka  # Kafka Listeners & Topic Resolver
+  │   ├─ outbox           # Outbox pattern
+  │   ├─ persistence      # JPA repositories
+  │   └─ worker           # Outbox Publisher
+  └─ resources
+  ├─ db/migration     # Flyway SQL migrations
+  └─ application*.properties
+  ```
+---
+## 🔄 Saga Flow Diagram (Kafka + Events)
 
-To run the tests:
+```mermaid
+sequenceDiagram
+    participant Client
+    participant OrderService
+    participant Kafka
+    participant InventoryService
+    participant PaymentService
 
-```bash
-./mvnw clean test
+    Client->>OrderService: Create Order
+    OrderService->>Kafka: ORDER_CREATED
+
+    Kafka->>InventoryService: ORDER_CREATED
+    InventoryService-->>Kafka: INVENTORY_CONFIRMED
+    InventoryService-->>Kafka: INVENTORY_REJECTED
+
+    alt Inventory Confirmed
+        Kafka->>PaymentService: PAYMENT_REQUESTED
+        PaymentService-->>Kafka: PAYMENT_COMPLETED
+        PaymentService-->>Kafka: PAYMENT_FAILED
+    end
+
+    alt Payment Completed
+        Kafka->>OrderService: PAYMENT_COMPLETED
+        OrderService->>OrderService: set status COMPLETED
+    end
+
+    alt Payment Failed
+        Kafka->>OrderService: PAYMENT_FAILED
+        OrderService->>OrderService: set status FAILED
+    end
+
+    alt Inventory Rejected
+        Kafka->>OrderService: INVENTORY_REJECTED
+        OrderService->>OrderService: set status FAILED
+    end
+```
+
+### 🧠 Saga Explanation
+
+The Order Service participates in a **choreography-based Saga** using Kafka events.
+
+- The process starts when an order is created and `ORDER_CREATED` event is published.
+- Inventory Service validates and reserves stock:
+  - `INVENTORY_CONFIRMED` → continue flow
+  - `INVENTORY_REJECTED` → order is marked as FAILED
+- If inventory is confirmed, Payment Service processes payment:
+  - `PAYMENT_COMPLETED` → order is COMPLETED
+  - `PAYMENT_FAILED` → order is FAILED
+
+There are **no distributed transactions**.  
+Each service updates its own state based on events, ensuring **eventual consistency**.
+---
+
+🔄 State Machine 
+## 📊 Order State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+
+    PENDING --> FAILED : INVENTORY_REJECTED
+    PENDING --> INVENTORY_CONFIRMED : INVENTORY_CONFIRMED
+
+    INVENTORY_CONFIRMED --> FAILED : PAYMENT_FAILED
+    INVENTORY_CONFIRMED --> COMPLETED : PAYMENT_COMPLETED
+
+    FAILED --> [*]
+    COMPLETED --> [*]
 ```
 ---
-## 🌍 Purpose
 
-This service demonstrates:
-* Clean microservice architecture
-* CRUD operations for orders
-* Pagination, sorting, filtering
-* Event-driven communication via Kafka
-* Validation and REST best practices
-* Integration testing with Testcontainers
+## 🧪 Testing
+* Unit & Integration tests for services and Kafka:
+* OrderServiceIntegrationTest
+* AvroSerializationTest
+Uses in-memory Kafka for local tests.
+---
+## 🚀 Running Locally
+
+### Start DB and Kafka
+```bash
+docker-compose -f docker-compose.local.yml up
+```
+
+### Run service
+```bash
+./mvnw spring-boot:run
+```
+
 ---
 ### 👨‍💻 Author
-Andrii Kulynch
+_**Andrii Kulynch**_
 
-📅 Version: 2.0
+📅 Version: 3.0(Saga Architecture)

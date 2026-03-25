@@ -59,7 +59,6 @@ public class OrderOutboxPublisher {
                     .whenComplete((result, ex) -> {
 
                         if (ex != null) {
-
                             log.error(
                                     "Kafka publish failed: order={}, topic={}",
                                     event.getOrderNbr(),

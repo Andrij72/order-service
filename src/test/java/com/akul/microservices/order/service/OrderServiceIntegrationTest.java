@@ -1,11 +1,17 @@
 package com.akul.microservices.order.service;
 
 
+import com.akul.microservices.order.domain.model.Order;
+import com.akul.microservices.order.infrastructure.outbox.OrderEventType;
+import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
+import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
 import com.akul.microservices.order.infrastructure.persistence.OrderRepository;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import io.restassured.RestAssured;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -21,7 +27,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -62,6 +70,8 @@ class OrderServiceIntegrationTest {
                     .withUsername("test")
                     .withPassword("test")
                     .withInitScript("schema.sql");
+    @Autowired
+    private OrderOutboxRepository orderOutboxRepository;
 
     @DynamicPropertySource
     static void registerKafka(DynamicPropertyRegistry registry) {
@@ -76,7 +86,54 @@ class OrderServiceIntegrationTest {
         orderRepository.deleteAll();
         wireMockServer.resetAll();
 
-      }
+    }
+
+
+    @Test
+    public void ShouldPlaceOrder_andTriggerSaga() {
+
+        String orderJson = """
+                    {
+                        "items": [
+                          { "sku": "OnePlus 12", "productName": "OnePlus 12", "price": 8399.0, "quantity": 2 }
+                        ],
+                        "userDetails": {
+                          "email": "test@example.com",
+                          "firstName": "Test",
+                          "lastName": "T"
+                        }
+                      };
+                    }
+                """;
+        String orderNumber =
+                given()
+                        .contentType("application/json")
+                        .body(orderJson)
+                        .when()
+                        .post("/api/v1/orders")
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .jsonPath()
+                        .getString("orderNumber");
+        Order saved = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(RuntimeException::new);
+
+        assertThat(saved.getOrderNumber()).isEqualTo(orderNumber);
+
+        Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .untilAsserted(()-> {
+                            List<OrderOutbox> events = orderOutboxRepository.findAll();
+                            assertThat(events).hasSize(1);
+                            assertThat(events.getFirst().getEventType())
+                                    .isEqualTo(OrderEventType.ORDER_CREATED);
+                    assertThat(events.getFirst().getAggregateId()).isEqualTo(orderNumber);
+                });
+
+
+
+    }
 
 //    // ---------------------------------------------------------------------
 //    // CREATE ORDER
@@ -288,4 +345,6 @@ class OrderServiceIntegrationTest {
 //                .then()
 //                .statusCode(404);
 //    }
+
+
 }
