@@ -1,31 +1,75 @@
 package com.akul.microservices.order.service;
 
+import com.akul.microservices.order.application.service.OrderService;
 import com.akul.microservices.order.domain.model.Order;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
 import com.akul.microservices.order.infrastructure.persistence.OrderRepository;
+import io.restassured.RestAssured;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Import(KafkaTestConfig.class)
+@Testcontainers
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "spring.flyway.enabled=false",
+                "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
+                "loki.enabled=false",
+                "spring.cloud.discovery.enabled=false",
+                "eureka.client.enabled=false",
+                "spring.kafka.listener.auto-startup=false",
+                "spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer",
+                "spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer",
+                "spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
+                "spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer",
+                "spring.kafka.consumer.properties.spring.json.trusted.packages=com.akul.microservices.**",
+                "spring.task.scheduling.enabled=false",
+                "spring.lifecycle.timeout-per-shutdown-phase=5s"
+        }
+)
+
 class OrderServiceIntegrationTest {
+
+    @Container
+    static KafkaContainer kafka =
+            new KafkaContainer(
+                    DockerImageName.parse("confluentinc/cp-kafka:7.7.8")
+            );
+
+    @ServiceConnection
+    static MySQLContainer<?> mysql =
+            new MySQLContainer<>("mysql:8.3.0")
+                    .withDatabaseName("orderdb")
+                    .withUsername("test")
+                    .withPassword("test");
+
+    @DynamicPropertySource
+    static void registerKafka(DynamicPropertyRegistry registry) {
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+    }
+
+    @LocalServerPort
+    private int port;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -34,17 +78,17 @@ class OrderServiceIntegrationTest {
     private OrderOutboxRepository orderOutboxRepository;
 
     @Autowired
-    private KafkaTemplate<String, Object> kafkaTemplate;
-
-    @LocalServerPort
-    private int port;
+    private OrderService orderService;
 
     @BeforeEach
     void setUp() {
+        if (!kafka.isRunning()) kafka.start();
+
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = port;
+
         orderRepository.deleteAll();
         orderOutboxRepository.deleteAll();
-        io.restassured.RestAssured.port = port;
-        io.restassured.RestAssured.baseURI = "http://localhost";
     }
 
     @Test
@@ -110,5 +154,4 @@ class OrderServiceIntegrationTest {
                 .jsonPath()
                 .getString("orderNumber");
     }
-
 }

@@ -4,7 +4,8 @@ docker/mysql/data
 .idea/
 .vscode/
 
-target/
+target/*
+!target/*.jar
 build/
 *.class
 *.jar

@@ -2,42 +2,16 @@ name: Build, Test & Dockerize Order Service
 
 on:
   push:
-    branches:
-      - develop
-      - main
-    tags:
-      - 'v*.*.*'
+    branches: [ develop, main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/order-service
-  SPRING_PROFILES_ACTIVE: docker
-
-permissions:
-  contents: read
-  packages: read
 
 jobs:
   build-test-docker:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0.32
-        ports:
-          - 3306:3306
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: testdb
-          MYSQL_USER: testuser
-          MYSQL_PASSWORD: testpass
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
 
     steps:
       - uses: actions/checkout@v3
@@ -49,10 +23,10 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Setup Maven settings
+      - name: Setup Maven settings and Build JAR
         run: |
           mkdir -p $HOME/.m2
-          cat > $HOME/.m2/settings.xml <<EOL
+          cat > $HOME/.m2/settings.xml <<EOF
           <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
@@ -65,22 +39,19 @@ jobs:
               </server>
             </servers>
           </settings>
-          EOL
+          EOF
+          
+          mvn clean verify -B -s $HOME/.m2/settings.xml      
+          ls -l target
 
-      - name: Build & run tests
-        env:
-          SPRING_PROFILES_ACTIVE: docker
-          SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/testdb
-          SPRING_DATASOURCE_USERNAME: testuser
-          SPRING_DATASOURCE_PASSWORD: testpass
-        run: mvn clean verify -B
-
+        # --- Docker login
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
+      # --- Build & Push Docker image
       - name: Extract short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
@@ -104,7 +75,7 @@ jobs:
             mysql:8.0.32
 
           echo "Waiting for MySQL..."
-          sleep 10
+          sleep 15
 
           docker run -d --name order-service \
             --network test-network \
@@ -131,5 +102,4 @@ jobs:
           exit 1
 
       - name: API test
-        run: |
-          curl -f http://localhost:8083/api/v1/orders
+        run: curl -f http://localhost:8083/api/v1/orders
