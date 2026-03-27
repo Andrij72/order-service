@@ -12,7 +12,6 @@ import com.akul.microservices.order.domain.exception.OrderNotFoundException;
 import com.akul.microservices.order.domain.model.Order;
 import com.akul.microservices.order.domain.model.OrderStatus;
 import com.akul.microservices.order.event.OrderPlacedEvent;
-import com.akul.microservices.order.infrastructure.messaging.kafka.OrderTopicResolver;
 import com.akul.microservices.order.infrastructure.outbox.OrderEventType;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
@@ -57,7 +56,6 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderMapper mapper;
     private final OrderOutboxRepository outboxRepository;
-    private final OrderTopicResolver orderTopicResolver;
 
     // ---------------------------------------------------------------------
     // CREATE

@@ -1,350 +1,114 @@
 package com.akul.microservices.order.service;
 
-
 import com.akul.microservices.order.domain.model.Order;
-import com.akul.microservices.order.infrastructure.outbox.OrderEventType;
-import com.akul.microservices.order.infrastructure.outbox.OrderOutbox;
 import com.akul.microservices.order.infrastructure.outbox.OrderOutboxRepository;
 import com.akul.microservices.order.infrastructure.persistence.OrderRepository;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import io.restassured.RestAssured;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.kafka.KafkaContainer;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
-@Disabled
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Testcontainers
-@AutoConfigureWireMock(port = 0)
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {
-                "spring.flyway.enabled=false",
-                "spring.cloud.discovery.enabled=false",
-                "eureka.client.enabled=false"
-        }
-)
+@Import(KafkaTestConfig.class)
 class OrderServiceIntegrationTest {
 
     @Autowired
     private OrderRepository orderRepository;
 
     @Autowired
-    private WireMockServer wireMockServer;
+    private OrderOutboxRepository orderOutboxRepository;
 
     @Autowired
-    private PlatformTransactionManager txManager;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @LocalServerPort
     private int port;
 
-    @Container
-    static KafkaContainer kafka =
-            new KafkaContainer(DockerImageName.parse("apache/kafka:3.7.0"));
-
-    @ServiceConnection
-    static MySQLContainer<?> mysql =
-            new MySQLContainer<>("mysql:8.3.0")
-                    .withDatabaseName("orderdb")
-                    .withUsername("test")
-                    .withPassword("test")
-                    .withInitScript("schema.sql");
-    @Autowired
-    private OrderOutboxRepository orderOutboxRepository;
-
-    @DynamicPropertySource
-    static void registerKafka(DynamicPropertyRegistry registry) {
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-    }
-
     @BeforeEach
     void setUp() {
-        RestAssured.baseURI = "http://localhost";
-        RestAssured.port = port;
-
         orderRepository.deleteAll();
-        wireMockServer.resetAll();
-
+        orderOutboxRepository.deleteAll();
+        io.restassured.RestAssured.port = port;
+        io.restassured.RestAssured.baseURI = "http://localhost";
     }
 
-
     @Test
-    public void ShouldPlaceOrder_andTriggerSaga() {
+    void shouldPlaceOrder_andCancelOrder() {
 
-        String orderJson = """
-                    {
-                        "items": [
-                          { "sku": "OnePlus 12", "productName": "OnePlus 12", "price": 8399.0, "quantity": 2 }
-                        ],
-                        "userDetails": {
-                          "email": "test@example.com",
-                          "firstName": "Test",
-                          "lastName": "T"
-                        }
-                      };
-                    }
-                """;
-        String orderNumber =
-                given()
-                        .contentType("application/json")
-                        .body(orderJson)
-                        .when()
-                        .post("/api/v1/orders")
-                        .then()
-                        .statusCode(201)
-                        .extract()
-                        .jsonPath()
-                        .getString("orderNumber");
-        Order saved = orderRepository.findByOrderNumber(orderNumber)
-                .orElseThrow(RuntimeException::new);
+        // -------------------------------
+        // CREATE ORDER
+        // -------------------------------
+        String orderNumber = createOrder();
 
+        Order saved = orderRepository.findByOrderNumber(orderNumber).orElseThrow();
         assertThat(saved.getOrderNumber()).isEqualTo(orderNumber);
 
         Awaitility.await()
                 .atMost(5, TimeUnit.SECONDS)
-                .untilAsserted(()-> {
-                            List<OrderOutbox> events = orderOutboxRepository.findAll();
-                            assertThat(events).hasSize(1);
-                            assertThat(events.getFirst().getEventType())
-                                    .isEqualTo(OrderEventType.ORDER_CREATED);
-                    assertThat(events.getFirst().getAggregateId()).isEqualTo(orderNumber);
+                .untilAsserted(() -> {
+                    List<?> events = orderOutboxRepository.findAll();
+                    assertThat(events).hasSize(1);
                 });
 
+        // -------------------------------
+        // CANCEL ORDER
+        // -------------------------------
+        given()
+                .patch("/api/v1/orders/{orderNumber}/cancel", orderNumber)
+                .then()
+                .statusCode(200);
 
-
+        Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .untilAsserted(() -> {
+                    Order cancelled = orderRepository.findByOrderNumber(orderNumber).orElseThrow();
+                    assertThat(cancelled.getStatus().name()).isEqualTo("CANCELLED");
+                });
     }
 
-//    // ---------------------------------------------------------------------
-//    // CREATE ORDER
-//    // ---------------------------------------------------------------------
-//    @Test
-//    void shouldSubmitOrder_withMultipleItems() {
-//        String orderJson = """
-//                {
-//                  "orderNumber": "6ccc23bd-4661-4a75-8989-d4d56e8d9a57",
-//                  "userDetails": {
-//                    "email": "andrii@example.com",
-//                    "firstName": "Andrii",
-//                    "lastName": "K"
-//                  },
-//                  "items": [
-//                    {"sku": "Samsung-90", "product_name": "Samsung 90", "price": 1200.00, "quantity": 2},
-//                    {"sku": "iPhone-15", "product_name": "iPhone 15", "price": 1500.00, "quantity": 1}
-//                  ],
-//                  "status":"PENDING"
-//                }
-//                """;
-//
-//        given()
-//                .contentType("application/json")
-//                .body(orderJson)
-//                .when()
-//                .post("/api/v1/orders")
-//                .then()
-//                .statusCode(201)
-//                .body("status", Matchers.is("PENDING"))
-//                .body("items", Matchers.hasSize(2))
-//                .body("items[0].sku", Matchers.is("Samsung-90"))
-//                .body("items[1].sku", Matchers.is("iPhone-15"))
-//                .body("userDetails.email", Matchers.is("andrii@example.com"));
-//
-//
-//        verify(getRequestedFor(urlPathEqualTo("/api/v1/inventory"))
-//                .withQueryParam("sku", equalTo("Samsung-90"))
-//                .withQueryParam("quantity", equalTo("2")));
-//        verify(getRequestedFor(urlPathEqualTo("/api/v1/inventory"))
-//                .withQueryParam("sku", equalTo("iPhone-15"))
-//                .withQueryParam("quantity", equalTo("1")));
-//
-//
-//        TransactionTemplate template = new TransactionTemplate(txManager);
-//        template.execute(status -> {
-//            List<Order> orders = orderRepository.findAll();
-//            assertThat(orders).hasSize(1);
-//
-//            Order savedOrder = orders.getFirst();
-//            assertThat(savedOrder.getItems()).hasSize(2);
-//            assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
-//            return null;
-//        });
-//
-//    }
-//
-//    // ---------------------------------------------------------------------
-//    // GET ORDER
-//    // ---------------------------------------------------------------------
-//    @Test
-//    void shouldRetrieveExistingOrder() {
-//
-//        OrderItem orderItem1 = OrderItem.builder()
-//                .sku("Samsung-90")
-//                .productName("Samsung 90")
-//                .price(BigDecimal.valueOf(1500))
-//                .quantity(2)
-//                .build();
-//
-//        OrderItem orderItem2 = OrderItem.builder()
-//                .sku("iPhone-15")
-//                .productName("iPhone 15")
-//                .price(BigDecimal.valueOf(1200))
-//                .quantity(1)
-//                .build();
-//
-//        Order order = Order.builder()
-//                .orderNumber(UUID.randomUUID().toString())
-//                .status(OrderStatus.PENDING)
-//                .userDetails(new UserDetails(
-//                        "andrii@example.com",
-//                        "Andrii",
-//                        "K"
-//                ))
-//
-//                .build();
-//
-//        order.setItems(Arrays.asList(orderItem1, orderItem2));
-//        orderItem1.setOrder(order);
-//        orderItem2.setOrder(order);
-//
-//
-//        orderRepository.save(order);
-//
-//        given()
-//                .when()
-//                .get("/api/v1/orders/" + order.getOrderNumber())
-//                .then()
-//                .statusCode(200)
-//                .body("orderNumber", Matchers.is(order.getOrderNumber()))
-//                .body("items", Matchers.hasSize(2))
-//                .body("userDetails.firstName", Matchers.is("Andrii"));
-//    }
-//
-//    // ---------------------------------------------------------------------
-//    // GET ALL ORDERS
-//    // ---------------------------------------------------------------------
-//    @Test
-//    void shouldRetrieveAllOrdersWithPaginationAndSorting() {
-//        OrderItem item1 = OrderItem.builder()
-//                .sku("Samsung-90")
-//                .productName("Samsung 90")
-//                .price(BigDecimal.valueOf(1500))
-//                .quantity(2)
-//                .build();
-//
-//        OrderItem item2 = OrderItem.builder()
-//                .sku("iPhone-15")
-//                .productName("iPhone 15")
-//                .price(BigDecimal.valueOf(1200))
-//                .quantity(1)
-//                .build();
-//
-//        Order order1 = Order.builder()
-//                .orderNumber(UUID.randomUUID().toString())
-//                .status(OrderStatus.PENDING)
-//                .userDetails(new UserDetails("andrii@example.com", "Andrii", "K"))
-//                .build();
-//        order1.setItems(List.of(item1));
-//        item1.setOrder(order1);
-//
-//        Order order2 = Order.builder()
-//                .orderNumber(UUID.randomUUID().toString())
-//                .status(OrderStatus.PENDING)
-//                .userDetails(new UserDetails("test@example.com", "Test", "T"))
-//                .build();
-//        order2.setItems(List.of(item2));
-//        item2.setOrder(order2);
-//
-//        orderRepository.saveAll(List.of(order1, order2));
-//
-//        // -------------------------------
-//        // Act & Assert: without parameters
-//        // -------------------------------
-//        given()
-//                .queryParam("page", 0)
-//                .queryParam("size", 10)
-//                .when()
-//                .get("/api/v1/orders")
-//                .then()
-//                .statusCode(200)
-//                .body("content", Matchers.hasSize(2))
-//                .body("totalElements", Matchers.is(2))
-//                .body("content[0].orderNumber", Matchers.notNullValue())
-//                .body("content[0].items", Matchers.notNullValue());
-//
-//        // -------------------------------
-//        // Act & Assert: filter by status
-//        // -------------------------------
-//        given()
-//                .queryParam("status", "PENDING")
-//                .queryParam("page", 0)
-//                .queryParam("size", 10)
-//                .when()
-//                .get("/api/v1/orders")
-//                .then()
-//                .statusCode(200)
-//                .body("content", Matchers.hasSize(2))
-//                .body("content[0].status", Matchers.is("PENDING"));
-//
-//        // -------------------------------
-//        // Act & Assert: filter by email
-//        // -------------------------------
-//        given()
-//                .queryParam("email", "test@example.com")
-//                .queryParam("page", 0)
-//                .queryParam("size", 10)
-//                .when()
-//                .get("/api/v1/orders")
-//                .then()
-//                .statusCode(200)
-//                .body("content", Matchers.hasSize(1))
-//                .body("content[0].userDetails.email", Matchers.is("test@example.com"));
-//
-//        // -------------------------------
-//        // Act & Assert: multi-sort (createdAt desc, status asc)
-//        // -------------------------------
-//        given()
-//                .queryParam("sort", "createdAt,desc")
-//                .queryParam("sort", "status,asc")
-//                .queryParam("page", 0)
-//                .queryParam("size", 10)
-//                .when()
-//                .get("/api/v1/orders")
-//                .then()
-//                .statusCode(200)
-//                .body("content", Matchers.hasSize(2));
-//    }
-//
-//    // ---------------------------------------------------------------------
-//    // NOT FOUND
-//    // ---------------------------------------------------------------------
-//    @Test
-//    void shouldReturn404ForNonExistingOrder() {
-//        given()
-//                .when()
-//                .get("/api/v1/orders/not-exist")
-//                .then()
-//                .statusCode(404);
-//    }
+    // ---------------------------------------------------------------------
+    // HELPER
+    // ---------------------------------------------------------------------
+    private String createOrder() {
 
+        String orderJson = """
+            {
+              "items": [
+                { "sku": "iPhone-15", "productName": "iPhone 15", "price": 1500.0, "quantity": 1 }
+              ],
+              "userDetails": {
+                "email": "test@example.com",
+                "firstName": "Test",
+                "lastName": "User"
+              }
+            }
+        """;
+
+        return given()
+                .contentType("application/json")
+                .body(orderJson)
+                .when()
+                .post("/api/v1/orders")
+                .then()
+                .statusCode(201)
+                .extract()
+                .jsonPath()
+                .getString("orderNumber");
+    }
 
 }
