@@ -1,8 +1,8 @@
 
 ---
-# 🧾📦  Order Service (Saga Version)
-
-Order Service is a microservice responsible for managing orders in an e-commerce system.  
+# 🧾 Order Service (Saga Version)
+Order Service manages the lifecycle of orders within the [MicroServiceGrid system-DDD](https://github.com/Andrij72/MicroserviceGrid-DDD) and 
+is a microservice responsible for managing orders in an e-commerce system.  
 This is the **updated Saga version**, replacing the legacy CRUD approach.  
 You can find the legacy CRUD version here: [Legacy CRUD Version](https://github.com/Andrij72/order-service/tree/develop_crud)
 
@@ -120,99 +120,144 @@ PATCH /api/v1/orders/{orderNumber}/cancel
   └─ application*.properties
   ```
 ---
-## 🔄 Saga Flow Diagram (Kafka + Events)
+## 🔄 ## 🔹 Saga Flow (Order Perspective)
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant OrderService
-    participant Kafka
-    participant InventoryService
-    participant PaymentService
-
-    Client->>OrderService: Create Order
-    OrderService->>Kafka: ORDER_CREATED
-
-    Kafka->>InventoryService: ORDER_CREATED
-    InventoryService-->>Kafka: INVENTORY_CONFIRMED
-    InventoryService-->>Kafka: INVENTORY_REJECTED
-
-    alt Inventory Confirmed
-        Kafka->>PaymentService: PAYMENT_REQUESTED
-        PaymentService-->>Kafka: PAYMENT_COMPLETED
-        PaymentService-->>Kafka: PAYMENT_FAILED
-    end
-
-    alt Payment Completed
-        Kafka->>OrderService: PAYMENT_COMPLETED
-        OrderService->>OrderService: set status COMPLETED
-    end
-
-    alt Payment Failed
-        Kafka->>OrderService: PAYMENT_FAILED
-        OrderService->>OrderService: set status FAILED
-    end
-
-    alt Inventory Rejected
-        Kafka->>OrderService: INVENTORY_REJECTED
-        OrderService->>OrderService: set status FAILED
-    end
-```
-
-### 🧠 Saga Explanation
-
-The Order Service participates in a **choreography-based Saga** using Kafka events.
-
-- The process starts when an order is created and `ORDER_CREATED` event is published.
-- Inventory Service validates and reserves stock:
-  - `INVENTORY_CONFIRMED` → continue flow
-  - `INVENTORY_REJECTED` → order is marked as FAILED
-- If inventory is confirmed, Payment Service processes payment:
-  - `PAYMENT_COMPLETED` → order is COMPLETED
-  - `PAYMENT_FAILED` → order is FAILED
-
-There are **no distributed transactions**.  
-Each service updates its own state based on events, ensuring **eventual consistency**.
----
-
-🔄 State Machine 
-## 📊 Order State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING
-
-    PENDING --> FAILED : INVENTORY_REJECTED
-    PENDING --> INVENTORY_CONFIRMED : INVENTORY_CONFIRMED
-
-    INVENTORY_CONFIRMED --> FAILED : PAYMENT_FAILED
-    INVENTORY_CONFIRMED --> COMPLETED : PAYMENT_COMPLETED
-
-    FAILED --> [*]
-    COMPLETED --> [*]
+```text
+     User
+      │
+      ▼
+     Order Service
+      │
+      ├── validate order
+      ├── persist order in DB
+      ├── save ORDER_CREATED event to Outbox
+      │
+      ▼
+     Outbox Worker → Kafka
+      │
+      ▼
+     Inventory Service
+      ├── check stock
+      ├── reserve inventory (per SKU)
+      ├── create reservation (TTL)
+      ├── save INVENTORY_CONFIRMED / INVENTORY_REJECTED / INVENTORY_EXPIRED to Outbox
+      │
+      ▼
+     Outbox Worker → Kafka
+      │
+      ▼
+     Order Service reacts
+      ├── CONFIRMED → publish PAYMENT_REQUESTED
+      └── REJECTED / EXPIRED → mark order as FAILED
+      │
+      ▼
+     Payment Service
+      ├── process payment
+      ├── save PAYMENT_COMPLETED / PAYMENT_FAILED to Outbox
+      │
+      ▼
+     Outbox Worker → Kafka
+      │
+      ▼
+     Order Service updates order status
+      ├── PAYMENT_COMPLETED → COMPLETED
+      └── PAYMENT_FAILED → FAILED + INVENTORY_CANCELLED
 ```
 ---
 
-## 🧪 Testing
-* Unit & Integration tests for services and Kafka:
-* OrderServiceIntegrationTest
-* AvroSerializationTest
-Uses in-memory Kafka for local tests.
----
-## 🚀 Running Locally
-
-### Start DB and Kafka
-```bash
-docker-compose -f docker-compose.local.yml up
+### ⏳ TTL Expiration Flow
+```text
+Scheduler
+│
+├── find expired reservations
+├── mark EXPIRED
+├── release inventory
+├── save INVENTORY_EXPIRED to Outbox
+▼
+Kafka → Order Service
+│
+└── update order as FAILED
 ```
 
-### Run service
-```bash
+---
+
+🧠 Key Design Principles
+
+* Outbox pattern ensures reliable event delivery
+* Idempotent operations via (order_id, sku_code) uniqueness
+* TTL reservations prevent stock locking
+* No distributed transactions — each service updates its state based on events
+* Multi-SKU orders processed independently
+---
+
+## 📦 Order States
+```text
+PENDING
+├─> INVENTORY_RESERVED
+│    ├─> PAYMENT_PROCESSING
+│    │    ├─> PAID
+│    │    └─> FAILED
+├─> FAILED
+└─> CANCELLED
+```
+---
+
+## 🔑 Key Features
+* Create orders via REST API
+* Confirm or reject orders through Saga
+* Automatic status updates
+* Outbox + Kafka for guaranteed event delivery
+* Idempotent handling to avoid duplication
+---
+
+## 🔗 Public API (OrderController)
+
+| Method | Endpoint                            | Description      |
+|--------|-------------------------------------|------------------|
+| POST   | /api/v1/orders                      | Create an order  |
+| PATCH  | /api/v1/orders/{orderNumber}/cancel | Cancel an order  |
+| GET    | /api/v1/orders/{orderNumber}        | Get order status |
+
+
+Example:
+```http request
+POST /api/v1/orders
+Content-Type: application/json
+
+  {
+  "items": [
+  { "sku": "iPhone-15", "productName": "iPhone 15", "price": 1500.0, "quantity": 1 }
+  ],
+  "userDetails": {
+  "email": "test@example.com",
+  "firstName": "Test",
+  "lastName": "User"
+  }
+  }
+```
+## 🧪 Tests
+* Integration tests via Testcontainers (Kafka + MySQL)
+* Verify Saga flow: CREATE → INVENTORY_CONFIRMED → PAYMENT → ORDER_COMPLETED
+* Idempotency, Outbox, and TTL handling
+
+---
+
+## 🐳 Running Locally
+```shell
+git clone https://github.com/Andrij72/order-service.git
+cd order-service
+docker-compose -f docker-compose.local.yml up -d
 ./mvnw spring-boot:run
 ```
+---
+
+## ⚠️ Failure Handling
+* Inventory insufficient → INVENTORY_REJECTED → order CANCELLED
+* Reservation TTL expired → INVENTORY_EXPIRED → order CANCELLED
+* Payment failed → PAYMENT_FAILED → compensation: INVENTORY_CANCELLED
 
 ---
 ### 👨‍💻 Author
 _**Andrii Kulynch**_
-
-📅 Version: 3.0(Saga Architecture)
+Microservices, Kafka, Saga, Outbox, Spring Boot
+📅 Version: 3.0

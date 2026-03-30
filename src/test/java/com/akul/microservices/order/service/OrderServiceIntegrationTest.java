@@ -49,24 +49,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class OrderServiceIntegrationTest {
 
-//    @Container
-//    static KafkaContainer kafka =
-//            new KafkaContainer(
-//                    DockerImageName.parse("confluentinc/cp-kafka:7.7.8")
-//            );
-//
-//    @ServiceConnection
-//    static MySQLContainer<?> mysql =
-//            new MySQLContainer<>("mysql:8.0.34")
-//                    .withDatabaseName("orderdb")
-//                    .withUsername("test")
-//                    .withPassword("test");
-//
-//    @DynamicPropertySource
-//    static void registerProperties(DynamicPropertyRegistry registry) {
-//        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-//    }
-
     @LocalServerPort
     private int port;
 
