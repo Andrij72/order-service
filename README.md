@@ -6,7 +6,8 @@ is a microservice responsible for managing orders in an e-commerce system.
 This is the **updated Saga version**, replacing the legacy CRUD approach.  
 You can find the legacy CRUD version here: [Legacy CRUD Version](https://github.com/Andrij72/order-service/tree/develop_crud)
 
----
+The service supports **pagination**, **sorting**, and filtering by status or user email.
+It is part of **MicroserviceGrid** project and communicates with other services and infrastructure as follows:
 
 ## 📌 Features
 
@@ -30,19 +31,6 @@ You can find the legacy CRUD version here: [Legacy CRUD Version](https://github.
 - Lombok
 - Avro for event serialization
 
----
-
-## 🛠 Docker
-
-Dockerfile and docker-compose are provided for local development and production deployment.
-
-```bash
-# Build Docker image
-docker build -t order-service:latest .
-
-# Run locally with docker-compose
-docker-compose -f docker-compose.local.yml up
-```
 ---
 ## 📡 Kafka Integration
 
