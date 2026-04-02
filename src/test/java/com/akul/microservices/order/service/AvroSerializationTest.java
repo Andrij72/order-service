@@ -1,6 +1,7 @@
 package com.akul.microservices.order.service;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -9,12 +10,16 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AvroSerializationTest {
 
     @Test
-    void testSerializeOrderPlacedEvent() throws Exception {
+    void testSerializeAndDeserializeOrderPlacedEvent() {
+
         MockSchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
 
         Map<String, Object> config = new HashMap<>();
@@ -23,53 +28,35 @@ public class AvroSerializationTest {
         KafkaAvroSerializer serializer = new KafkaAvroSerializer(schemaRegistry);
         serializer.configure(config, false);
 
+        KafkaAvroDeserializer deserializer = new KafkaAvroDeserializer(schemaRegistry);
+        deserializer.configure(config, false);
 
-        String schemaString = "{\n" +
-                              "  \"type\": \"record\",\n" +
-                              "  \"name\": \"OrderPlacedEvent\",\n" +
-                              "  \"namespace\": \"com.akul.microservices.order.infrastructure.messaging.kafka.avro\",\n" +
-                              "  \"fields\": [\n" +
-                              "    {\"name\": \"orderNumber\", \"type\": \"string\"},\n" +
-                              "    {\"name\": \"email\", \"type\": \"string\"},\n" +
-                              "    {\"name\": \"firstName\", \"type\": \"string\"},\n" +
-                              "    {\"name\": \"lastName\", \"type\": \"string\"},\n" +
-                              "    {\"name\": \"status\", \"type\": \"string\"},\n" +
-                              "    {\"name\": \"items\", \"type\": {\"type\": \"array\", \"items\": {\"type\": \"record\", \"name\": \"OrderItem\", \"fields\": [\n" +
-                              "      {\"name\": \"sku\", \"type\": \"string\"},\n" +
-                              "      {\"name\": \"productName\", \"type\": \"string\"},\n" +
-                              "      {\"name\": \"price\", \"type\": \"double\"},\n" +
-                              "      {\"name\": \"quantity\", \"type\": \"int\"}\n" +
-                              "    ]}}}\n" +
-                              "  ]\n" +
-                              "}";
+        String schemaString =
+                """
+                        {
+                          "type": "record",
+                          "name": "OrderPlacedEvent",
+                          "namespace": "com.akul.microservices.order",
+                          "fields": [
+                            {"name": "orderNumber", "type": "string"},
+                            {"name": "status", "type": "string"}
+                          ]
+                        }
+                        """;
 
         Schema schema = new Schema.Parser().parse(schemaString);
-        schemaRegistry.register("com.akul.microservices.order.infrastructure.messaging.kafka.avro.OrderPlacedEvent", schema);
 
+        GenericRecord event = new GenericData.Record(schema);
+        event.put("orderNumber", "ORD12345");
+        event.put("status", "CREATED");
 
-        Schema orderItemSchema = schema.getField("items").schema().getElementType();
-        GenericRecord item1 = new GenericData.Record(orderItemSchema);
-        item1.put("sku", "iphone_15");
-        item1.put("productName", "iphone 15");
-        item1.put("price", 1350.0);
-        item1.put("quantity", 2);
+        byte[] bytes = serializer.serialize("order-created", event);
 
-        GenericRecord item2 = new GenericData.Record(orderItemSchema);
-        item2.put("sku", "airpods_pro");
-        item2.put("productName", "airpods pro");
-        item2.put("price", 250.0);
-        item2.put("quantity", 1);
+        Object result = deserializer.deserialize("order-created", bytes);
 
-        GenericRecord orderEvent = new GenericData.Record(schema);
-        orderEvent.put("orderNumber", "ORD12345");
-        orderEvent.put("email", "andrii@example.com");
-        orderEvent.put("firstName", "Andrii");
-        orderEvent.put("lastName", "K");
-        orderEvent.put("status", "CREATED");
-        orderEvent.put("items", Arrays.asList(item1, item2));
+        GenericRecord record = (GenericRecord) result;
 
-
-        byte[] data = serializer.serialize("order-placed-value", orderEvent);
-        System.out.println("Serialization successful, bytes length: " + data.length);
+        assertEquals("ORD12345", record.get("orderNumber").toString());
+        assertEquals("CREATED", record.get("status").toString());
     }
 }

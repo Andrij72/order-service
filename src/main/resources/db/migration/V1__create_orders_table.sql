@@ -2,12 +2,15 @@ CREATE TABLE IF NOT EXISTS t_orders
 (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_number VARCHAR(255) UNIQUE NOT NULL,
-    status       VARCHAR(50)         NOT NULL DEFAULT 'CREATED',
-    email        VARCHAR(255)        NOT NULL,
+    status       VARCHAR(50)  NOT NULL DEFAULT 'CREATED',
+    email        VARCHAR(255) NOT NULL,
     first_name   VARCHAR(255),
     last_name    VARCHAR(255),
-    created_at   TIMESTAMP                    DEFAULT CURRENT_TIMESTAMP,
-    updated_at   TIMESTAMP                    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    version      BIGINT NOT NULL DEFAULT 0
 );
 
 

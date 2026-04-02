@@ -2,7 +2,8 @@
 <configuration>
   <include resource="org/springframework/boot/logging/logback/base.xml"/>
   <springProperty scope="context" name="appName" source="spring.application.name"/>
-
+  <if condition='property("lokiEnabled").equals("true")'>
+  <then>
   <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
     <http>
       <url>http://loki:3100/loki/api/v1/push</url>
@@ -17,6 +18,8 @@
       <sortByTime>true</sortByTime>
     </format>
   </appender>
+ </then>
+  </if>
 
   <root level="INFO">
     <appender-ref ref="LOKI"/>

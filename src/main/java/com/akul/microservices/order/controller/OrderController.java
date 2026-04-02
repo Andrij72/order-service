@@ -1,18 +1,16 @@
 package com.akul.microservices.order.controller;
 
-import com.akul.microservices.order.dto.OrderRequest;
-import com.akul.microservices.order.dto.OrderResponse;
-import com.akul.microservices.order.dto.PageRequestDto;
-import com.akul.microservices.order.dto.PageResponseDto;
-import com.akul.microservices.order.dto.UpdateOrderStatusRequest;
-import com.akul.microservices.order.service.OrderService;
+import com.akul.microservices.order.application.dto.OrderRequest;
+import com.akul.microservices.order.application.dto.OrderResponse;
+import com.akul.microservices.order.application.dto.PageRequestDto;
+import com.akul.microservices.order.application.dto.PageResponseDto;
+import com.akul.microservices.order.application.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -93,29 +91,14 @@ public class OrderController {
         return ResponseEntity.accepted().body(response);
     }
 
-    // ---------------------------------------------------------------------
-    // UPDATE STATUS
-    // ---------------------------------------------------------------------
-    @PatchMapping("/{orderNumber}/status")
-    public ResponseEntity<OrderResponse> updateOrderStatus(
-            @PathVariable String orderNumber,
-            @RequestBody @Valid UpdateOrderStatusRequest request) {
-
-        OrderResponse response =
-                orderService.updateStatus(orderNumber, request.status());
-
-        return ResponseEntity.ok(response);
-    }
-
-    // ---------------------------------------------------------------------
-    // DELETE
-    // ---------------------------------------------------------------------
-    @DeleteMapping("/{orderNumber}")
-    public ResponseEntity<Void> deleteOrder(
+    @PatchMapping("/{orderNumber}/cancel")
+    public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable String orderNumber) {
 
-        orderService.deleteOrder(orderNumber);
-        return ResponseEntity.noContent().build();
+        OrderResponse response =
+                orderService.cancelOrder(orderNumber);
+
+        return ResponseEntity.ok(response);
     }
 
     // ---------------------------------------------------------------------
