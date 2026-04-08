@@ -1,26 +1,33 @@
 package com.akul.microservices.order.dto;
 
-import com.akul.microservices.order.model.Order;
-import com.akul.microservices.order.model.UserDetails;
-
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 
 /**
- * OrderResponse.java
+ * OrderResponse.java.
  *
  * @author Andrii Kulynch
  * @version 1.0
  * @since 8/23/2025
  */
-public record OrderResponse(String orderNbr,
-                            String skuCode,
-                            BigDecimal price,
-                            Integer quantity,
-                            UserDetails userDetails
+public record OrderResponse(
+        String orderNumber,
+        UserDetails userDetails,
+        List<OrderItemResponse> items,
+        String status,
+        Instant createdAt
 ) {
     public record UserDetails(
             String email,
             String firstName,
             String lastName
+    ) {}
+
+    public record OrderItemResponse(
+            String sku,
+            String name,
+            BigDecimal price,
+            Integer quantity
     ) {}
 }

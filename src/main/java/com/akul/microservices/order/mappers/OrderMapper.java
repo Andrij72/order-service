@@ -2,34 +2,59 @@ package com.akul.microservices.order.mappers;
 
 import com.akul.microservices.order.dto.OrderRequest;
 import com.akul.microservices.order.dto.OrderResponse;
+import com.akul.microservices.order.exception.BadRequestException;
 import com.akul.microservices.order.model.Order;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import com.akul.microservices.order.model.OrderItem;
+import com.akul.microservices.order.model.OrderStatus;
+import com.akul.microservices.order.model.UserDetails;
+import org.mapstruct.*;
 
 import java.util.List;
 
-/**
- * OrderMaper.java.
- *
- * @author Andrii Kulynch
- * @version 1.0
- * @since 9/26/2025
- */
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
-    @Mapping(target = "orderNbr", ignore = true)
     @Mapping(target = "id", ignore = true)
-    @Mapping(source = "userDetails.email", target = "userDetails.email")
-    @Mapping(source = "userDetails.firstName", target = "userDetails.firstName")
-    @Mapping(source = "userDetails.lastName", target = "userDetails.lastName")
-    Order toEntity(OrderRequest orderDto);
+    @Mapping(target = "orderNumber", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "items", ignore = true)
+    Order toEntity(OrderRequest request);
 
-    @Mapping(source = "userDetails.email", target = "userDetails.email")
-    @Mapping(source = "userDetails.firstName", target = "userDetails.firstName")
-    @Mapping(source = "userDetails.lastName", target = "userDetails.lastName")
-    OrderResponse toDto(Order order);
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "order", ignore = true)
+    OrderItem toEntity(OrderRequest.OrderItemRequest request);
 
-    List<OrderResponse> toDto(List<Order> orders);
+    UserDetails toEntity(OrderRequest.UserDetails dto);
 
+    @Mapping(source = "items", target = "items")
+    OrderResponse toResponse(Order order);
 
+    @IterableMapping(elementTargetType = OrderResponse.OrderItemResponse.class)
+    List<OrderResponse.OrderItemResponse> toResponse(List<OrderItem> items);
+
+    @Mapping(source = "productName", target = "name")
+    OrderResponse.OrderItemResponse toResponse(OrderItem item);
+
+    OrderResponse.UserDetails toResponse(UserDetails userDetails);
+
+    default void updateItems(@MappingTarget Order order,
+                             List<OrderRequest.OrderItemRequest> items) {
+
+        order.getItems().clear();
+
+        items.stream()
+                .map(this::toEntity)
+                .forEach(item -> {
+                    item.setOrder(order);
+                    order.getItems().add(item);
+                });
+    }
+
+    default void updateStatus(@MappingTarget Order order, String status) {
+        try {
+            OrderStatus newStatus = OrderStatus.valueOf(status.toUpperCase());
+            order.setStatus(newStatus);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid order status: " + status);
+        }
+    }
 }

@@ -11,10 +11,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
  * @since 9/3/2025
  */
 public class InventoryClientStub {
-    public static void stubInventoryCall(String skuCode, int quantity, WireMockServer wireMockServer) {
+    public static void stubInventoryCall(String sku, int quantity, WireMockServer wireMockServer) {
         wireMockServer.stubFor(
                 get(urlPathEqualTo("/api/v1/inventory"))
-                        .withQueryParam("skuCode", equalTo(skuCode))
+                        .withQueryParam("sku", equalTo(sku))
                         .withQueryParam("quantity", equalTo(String.valueOf(quantity)))
                         .willReturn(aResponse()
                                 .withStatus(200)
